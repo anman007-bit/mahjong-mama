@@ -1,0 +1,34 @@
+name: Build APK
+
+# Запускать при каждом пуше в репозиторий, плюс кнопка "Run workflow" вручную
+on:
+  push:
+    branches: [ main, master ]
+  workflow_dispatch:
+
+jobs:
+  build:
+    # Запускаемся на бесплатном Linux-сервере GitHub
+    runs-on: ubuntu-latest
+
+    steps:
+      # Шаг 1: получить код из репозитория
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      # Шаг 2: собрать APK с помощью готового действия от ArtemSBulgakov.
+      # Оно само установит Buildozer, Android SDK и всё нужное.
+      - name: Build with Buildozer
+        uses: ArtemSBulgakov/buildozer-action@v1
+        id: buildozer
+        with:
+          command: buildozer android debug
+          buildozer_version: stable
+
+      # Шаг 3: загрузить готовый APK как артефакт
+      # (его можно будет скачать на странице запуска)
+      - name: Upload APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: mahjong-apk
+          path: ${{ steps.buildozer.outputs.filename }}
