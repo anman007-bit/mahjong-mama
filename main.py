@@ -188,28 +188,48 @@ class MahjongBoard(Widget):
     # --------------------------------------------------------
 
     def _is_free(self, tile):
+        """
+        Плитка свободна если:
+        1. Сверху (на следующем слое) нет плитки которая её перекрывает
+        2. Слева ИЛИ справа в том же ряду нет плитки впритык
+        """
         if tile.removed:
             return False
-        # Проверка: нет ли плитки сверху
+
+        # === Проверка: НЕТ ЛИ ПЛИТКИ СВЕРХУ ===
+        # Плитка перекрывает данную, если она на слое выше И стоит над ней
+        # Над плиткой считается клетка (layer+1, row, col) и небольшие смещения
+        # Используем точную проверку: only same row, same col (плитка прямо сверху)
+        # Но из-за смещения слоёв плитка верхнего слоя может стоять на 0 или -1 от текущей
         for other in self.tiles:
             if other.removed or other is tile:
                 continue
             if other.layer == tile.layer + 1:
-                if (abs(other.row - tile.row) <= 1
-                        and abs(other.col - tile.col) <= 1):
+                # Плитка верхнего слоя на той же или соседней клетке
+                if other.row == tile.row and (
+                    other.col == tile.col or other.col == tile.col - 1
+                    or other.col == tile.col + 1
+                ):
                     return False
-        # Проверка: свободен левый ИЛИ правый край
+
+        # === Проверка: СВОБОДНО СЛЕВА ИЛИ СПРАВА ===
+        # Только в том же ряду и только на ВПРИТЫК соседних столбцах
         has_left = False
         has_right = False
         for other in self.tiles:
             if other.removed or other is tile:
                 continue
-            if other.layer == tile.layer:
-                if abs(other.row - tile.row) <= 1:
-                    if other.col in (tile.col - 1, tile.col - 2):
-                        has_left = True
-                    elif other.col in (tile.col + 1, tile.col + 2):
-                        has_right = True
+            if other.layer != tile.layer:
+                continue
+            if other.row != tile.row:
+                continue
+            # Соседняя по столбцу плитка
+            if other.col == tile.col - 1:
+                has_left = True
+            elif other.col == tile.col + 1:
+                has_right = True
+
+        # Свободна если хотя бы с одной стороны нет плитки
         return not (has_left and has_right)
 
     def _find_hint(self):
@@ -789,6 +809,141 @@ class MahjongBoard(Widget):
 
 
 # ============================================================
+# КНОПКА С ИКОНКОЙ (рисуется графикой, без зависимости от шрифтов)
+# ============================================================
+
+class IconButton(Button):
+    """Кнопка, рисующая на себе иконку графикой."""
+
+    def __init__(self, icon_type='hint', **kwargs):
+        # Скрываем текст
+        kwargs['text'] = ''
+        super().__init__(**kwargs)
+        self.icon_type = icon_type
+        # Перерисовываем иконку при изменении размера/позиции
+        self.bind(size=self._update_icon, pos=self._update_icon)
+
+    def _update_icon(self, *args):
+        # Очищаем предыдущую иконку
+        self.canvas.after.clear()
+
+        cx = self.center_x
+        cy = self.center_y
+        size = min(self.width, self.height) * 0.45
+
+        with self.canvas.after:
+            Color(1, 1, 1, 1)  # белый цвет иконки
+
+            if self.icon_type == 'hint':
+                self._draw_lightbulb(cx, cy, size)
+            elif self.icon_type == 'undo':
+                self._draw_undo_arrow(cx, cy, size)
+            elif self.icon_type == 'shuffle':
+                self._draw_shuffle(cx, cy, size)
+            elif self.icon_type == 'new':
+                self._draw_plus(cx, cy, size)
+
+    def _draw_lightbulb(self, cx, cy, size):
+        """Лампочка — кружок с цоколем снизу."""
+        # Колба (круг)
+        bulb_size = size * 0.85
+        Ellipse(
+            pos=(cx - bulb_size / 2, cy - bulb_size / 2 + size * 0.1),
+            size=(bulb_size, bulb_size)
+        )
+        # Цоколь — прямоугольник снизу
+        base_w = size * 0.5
+        base_h = size * 0.25
+        Color(0.85, 0.85, 0.85, 1)
+        Rectangle(
+            pos=(cx - base_w / 2, cy - size * 0.55),
+            size=(base_w, base_h)
+        )
+        # Лучики света
+        Color(1, 1, 1, 1)
+        for i in range(8):
+            angle = i * math.pi / 4
+            inner = bulb_size / 2 + size * 0.15
+            outer = bulb_size / 2 + size * 0.35
+            Line(points=[
+                cx + inner * math.cos(angle),
+                cy + size * 0.1 + inner * math.sin(angle),
+                cx + outer * math.cos(angle),
+                cy + size * 0.1 + outer * math.sin(angle),
+            ], width=2)
+
+    def _draw_undo_arrow(self, cx, cy, size):
+        """Стрелка-разворот (как на знаке)."""
+        # Дуга (полукруг сверху) — рисуем точками для имитации
+        radius = size * 0.55
+        # Линия дуги через много точек
+        arc_points = []
+        for i in range(20):
+            angle = math.pi * (1.0 - i / 19.0)  # от 180° до 0°
+            arc_points.extend([
+                cx + radius * math.cos(angle),
+                cy + radius * math.sin(angle) * 0.7  # немного сплющенный
+            ])
+        Line(points=arc_points, width=size * 0.12)
+
+        # Стрелка-наконечник на левом конце дуги (указывает вниз-влево)
+        arrow_x = cx - radius
+        arrow_y = cy
+        Line(points=[
+            arrow_x - size * 0.25, arrow_y + size * 0.15,
+            arrow_x, arrow_y - size * 0.2,
+            arrow_x + size * 0.25, arrow_y + size * 0.15,
+        ], width=size * 0.12)
+        # Палочка вниз от конца дуги
+        Line(points=[
+            arrow_x, arrow_y,
+            arrow_x, arrow_y - size * 0.3,
+        ], width=size * 0.12)
+
+    def _draw_shuffle(self, cx, cy, size):
+        """Две стрелки в разных направлениях (туда-сюда)."""
+        # Верхняя стрелка вправо
+        y_top = cy + size * 0.25
+        Line(points=[
+            cx - size * 0.6, y_top,
+            cx + size * 0.5, y_top,
+        ], width=size * 0.13)
+        # Наконечник
+        Line(points=[
+            cx + size * 0.3, y_top + size * 0.2,
+            cx + size * 0.5, y_top,
+            cx + size * 0.3, y_top - size * 0.2,
+        ], width=size * 0.13)
+
+        # Нижняя стрелка влево
+        y_bot = cy - size * 0.25
+        Line(points=[
+            cx + size * 0.6, y_bot,
+            cx - size * 0.5, y_bot,
+        ], width=size * 0.13)
+        # Наконечник
+        Line(points=[
+            cx - size * 0.3, y_bot + size * 0.2,
+            cx - size * 0.5, y_bot,
+            cx - size * 0.3, y_bot - size * 0.2,
+        ], width=size * 0.13)
+
+    def _draw_plus(self, cx, cy, size):
+        """Плюсик."""
+        thickness = size * 0.22
+        # Горизонтальная палка
+        Rectangle(
+            pos=(cx - size * 0.55, cy - thickness / 2),
+            size=(size * 1.1, thickness)
+        )
+        # Вертикальная палка
+        Rectangle(
+            pos=(cx - thickness / 2, cy - size * 0.55),
+            size=(thickness, size * 1.1)
+        )
+
+
+# ============================================================
 # ПРИЛОЖЕНИЕ — ГОРИЗОНТАЛЬНАЯ КОМПОНОВКА
 # ============================================================
 
@@ -826,23 +981,18 @@ class MahjongApp(App):
         self.score_label.bind(size=lambda l, s: setattr(l, 'text_size', s))
         side_panel.add_widget(self.score_label)
 
-        # Кнопки
-        for text, color, callback in [
-            ('Подсказка', (0.4, 0.7, 0.5, 1),
+        # Кнопки с иконками (icon_type, цвет фона, callback)
+        for icon_type, color, callback in [
+            ('hint', (0.4, 0.7, 0.5, 1),
              lambda b: self.board.show_hint()),
-            ('Отменить', (0.5, 0.6, 0.8, 1),
+            ('undo', (0.5, 0.6, 0.8, 1),
              lambda b: self.board.undo()),
-            ('Перемешать', (0.7, 0.5, 0.4, 1),
+            ('shuffle', (0.7, 0.5, 0.4, 1),
              lambda b: self.board.shuffle()),
-            ('Новая игра', (0.6, 0.4, 0.7, 1),
+            ('new', (0.6, 0.4, 0.7, 1),
              lambda b: self.board.restart()),
         ]:
-            btn = Button(
-                text=text,
-                font_size=18,
-                bold=True,
-                background_color=color
-            )
+            btn = IconButton(icon_type=icon_type, background_color=color)
             btn.bind(on_release=callback)
             side_panel.add_widget(btn)
 
