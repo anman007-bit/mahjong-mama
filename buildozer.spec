@@ -22,7 +22,7 @@ version = 1.0
 requirements = python3,kivy==2.3.0
 
 # Ориентация экрана: all = и портрет, и ландшафт
-orientation = sensor
+orientation = portrait
 
 # Полноэкранный режим: 0 = с верхней панелью телефона, 1 = совсем без неё
 fullscreen = 0
