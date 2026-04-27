@@ -785,7 +785,7 @@ class MahjongBoard(Widget):
             self.undos_used = 0
         if self.undos_used >= 5:
             self._show_popup('Отмена', 'Больше нельзя отменять.\nМаксимум 5 раз за игру.')
-           return
+            return
         self.undos_used += 1
 
     def shuffle(self):
