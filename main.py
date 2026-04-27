@@ -894,9 +894,10 @@ class MahjongBoard(Widget):
     def _show_popup(self, title, message):
         popup = Popup(
             title=title,
-            title_size='28sp',
-            content=Label(text=message, font_size=32),
-            size_hint=(0.7, 0.45)
+            title_size='42sp',
+            content=Label(text=message, font_size=44, halign='center', valign='middle'),
+            size_hint=(0.85, 0.7),
+            separator_color=(0.3, 0.6, 1, 1)
         )
         popup.open()
 
@@ -1074,7 +1075,8 @@ class MahjongApp(App):
         self.score_label.bind(size=lambda l, s: setattr(l, 'text_size', s))
         side_panel.add_widget(self.score_label)
 
-        # Кнопки с иконками (icon_type, цвет фона, callback)
+        # Создаём кнопки и сохраняем ссылки на счётчики
+        self.btn_counters = {}
         for icon_type, color, callback in [
             ('hint', (0.4, 0.7, 0.5, 1),
              lambda b: self.board.show_hint()),
@@ -1085,9 +1087,23 @@ class MahjongApp(App):
             ('new', (0.6, 0.4, 0.7, 1),
              lambda b: self.board.restart()),
         ]:
+            # Контейнер: кнопка сверху, счётчик снизу
+            container = BoxLayout(orientation='vertical', spacing=2)
             btn = IconButton(icon_type=icon_type, background_color=color)
             btn.bind(on_release=callback)
-            side_panel.add_widget(btn)
+            container.add_widget(btn)
+            # Счётчик — крупная цифра
+            counter = Label(
+                text='5',
+                font_size=28,
+                bold=True,
+                color=(1, 1, 1, 1),
+                size_hint_y=None,
+                height=35
+            )
+            self.btn_counters[icon_type] = counter
+            container.add_widget(counter)
+            side_panel.add_widget(container)
 
         root.add_widget(side_panel)
 
@@ -1099,9 +1115,15 @@ class MahjongApp(App):
         s = self.board.elapsed_seconds % 60
         self.score_label.text = (
             f'Пары: {self.board.score}/{self.board.total_pairs}\n'
-            f'⏱ {m:02d}:{s:02d}\n'
-            f'🔀 {self.board.shuffles_left}'
+            f'⏱ {m:02d}:{s:02d}'
         )
+        # Обновляем счётчики под кнопками
+        if hasattr(self, 'btn_counters'):
+            self.btn_counters['hint'].text = '∞'
+            undos_left = max(0, 5 - getattr(self.board, 'undos_used', 0))
+            self.btn_counters['undo'].text = str(undos_left)
+            self.btn_counters['shuffle'].text = str(self.board.shuffles_left)
+            self.btn_counters['new'].text = ''
 
 
 if __name__ == '__main__':
