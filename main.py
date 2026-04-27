@@ -125,9 +125,20 @@ class MahjongBoard(Widget):
         self.score = 0
         self.total_pairs = 72
         self.history = []
+        self.shuffles_left = 5  # лимит перемешиваний
+        self.start_time = None  # время старта игры
+        self.elapsed_seconds = 0  # секунды прошло
+        self.game_over = False  # игра завершена
         self._create_tiles()
+        self.start_time = Clock.get_boottime()
         self.bind(size=self._redraw, pos=self._redraw)
         Clock.schedule_once(lambda dt: self._redraw(), 0)
+        # Таймер обновляется раз в секунду
+        Clock.schedule_interval(self._tick_timer, 1.0)
+
+    def _tick_timer(self, dt):
+        if self.start_time and not self.game_over:
+            self.elapsed_seconds = int(Clock.get_boottime() - self.start_time)
 
     def _create_tiles(self):
         pool = build_tile_pool()
@@ -143,6 +154,10 @@ class MahjongBoard(Widget):
         self.first_selected = None
         self.score = 0
         self.history = []
+        self.shuffles_left = 5
+        self.game_over = False
+        self.start_time = Clock.get_boottime()
+        self.elapsed_seconds = 0
         self._create_tiles()
         self._redraw()
 
@@ -197,19 +212,15 @@ class MahjongBoard(Widget):
             return False
 
         # === Проверка: НЕТ ЛИ ПЛИТКИ СВЕРХУ ===
-        # Плитка перекрывает данную, если она на слое выше И стоит над ней
-        # Над плиткой считается клетка (layer+1, row, col) и небольшие смещения
-        # Используем точную проверку: only same row, same col (плитка прямо сверху)
-        # Но из-за смещения слоёв плитка верхнего слоя может стоять на 0 или -1 от текущей
+        # В раскладке "Черепаха" плитки верхнего слоя ставятся точно
+        # над плитками нижнего слоя (на ту же клетку).
+        # Поэтому проверка простая: плитка верхнего слоя
+        # на ТОЙ ЖЕ row и col перекрывает данную.
         for other in self.tiles:
             if other.removed or other is tile:
                 continue
             if other.layer == tile.layer + 1:
-                # Плитка верхнего слоя на той же или соседней клетке
-                if other.row == tile.row and (
-                    other.col == tile.col or other.col == tile.col - 1
-                    or other.col == tile.col + 1
-                ):
+                if other.row == tile.row and other.col == tile.col:
                     return False
 
         # === Проверка: СВОБОДНО СЛЕВА ИЛИ СПРАВА ===
@@ -223,7 +234,6 @@ class MahjongBoard(Widget):
                 continue
             if other.row != tile.row:
                 continue
-            # Соседняя по столбцу плитка
             if other.col == tile.col - 1:
                 has_left = True
             elif other.col == tile.col + 1:
@@ -279,13 +289,13 @@ class MahjongBoard(Widget):
             )
             # Лицевая часть
             if tile.selected:
-                Color(1.0, 0.92, 0.5, 1)
+                Color(1.0, 0.92, 0.5, 1)  # ярко-жёлтый - выбрана
             elif tile.hint:
-                Color(0.7, 1.0, 0.7, 1)
+                Color(0.7, 1.0, 0.7, 1)   # зелёный - подсказка
             elif is_free:
-                Color(0.99, 0.97, 0.90, 1)
+                Color(1.00, 0.98, 0.92, 1)  # светло-кремовый - свободна
             else:
-                Color(0.78, 0.74, 0.65, 1)
+                Color(0.55, 0.52, 0.45, 1)  # тёмно-серый - заблокирована
 
             face_x = x + side
             face_y = y + side
@@ -777,6 +787,12 @@ class MahjongBoard(Widget):
         self._redraw()
 
     def shuffle(self):
+        if self.shuffles_left <= 0:
+            self._show_popup('Перемешивания закончились',
+                             'Перемешать больше нельзя.\n'
+                             'Нажмите "Новая игра"')
+            return
+        self.shuffles_left -= 1
         remaining = [t for t in self.tiles if not t.removed]
         defs = [t.tile_def for t in remaining]
         random.shuffle(defs)
@@ -791,13 +807,87 @@ class MahjongBoard(Widget):
     def _check_game_state(self):
         remaining = [t for t in self.tiles if not t.removed]
         if not remaining:
-            self._show_popup('Победа!',
-                             'Поздравляем!\nВсе плитки убраны!')
+            self.game_over = True
+            self._launch_fireworks()
+            time_str = self._format_time(self.elapsed_seconds)
+            self._show_popup('🎉 ПОБЕДА! 🎉',
+                             f'Все плитки убраны!\n'
+                             f'Время: {time_str}')
             return
         if not self._find_hint():
             self._show_popup('Тупик',
                              'Нет доступных пар.\n'
                              'Нажмите "Перемешать"')
+
+    def _format_time(self, seconds):
+        m = seconds // 60
+        s = seconds % 60
+        return f'{m:02d}:{s:02d}'
+
+    def _launch_fireworks(self):
+        """Запускает анимацию салюта при победе."""
+        # Создаём фейерверк: несколько точек разлетающихся в разные стороны
+        # Запускаем 5 залпов с разной задержкой
+        for i in range(5):
+            Clock.schedule_once(
+                lambda dt, idx=i: self._single_firework(idx),
+                i * 0.4
+            )
+
+    def _single_firework(self, idx):
+        """Один залп салюта."""
+        # Случайная позиция в верхней части экрана
+        cx = self.width * (0.2 + 0.6 * random.random())
+        cy = self.height * (0.5 + 0.4 * random.random())
+
+        # Цвет залпа
+        colors = [
+            (1.0, 0.3, 0.3, 1),   # красный
+            (0.3, 1.0, 0.3, 1),   # зелёный
+            (0.3, 0.5, 1.0, 1),   # синий
+            (1.0, 0.9, 0.3, 1),   # жёлтый
+            (1.0, 0.5, 0.9, 1),   # розовый
+        ]
+        col = random.choice(colors)
+
+        # Рисуем 12 искр вокруг центра
+        num_sparks = 12
+        for i in range(num_sparks):
+            angle = i * 2 * math.pi / num_sparks
+            # Анимируем "разлёт" искр через несколько кадров
+            self._draw_spark(cx, cy, angle, col, 0)
+
+    def _draw_spark(self, cx, cy, angle, col, frame):
+        """Рисует искру и планирует следующий кадр анимации."""
+        if frame >= 15:
+            return  # анимация завершена
+        # Радиус разлёта растёт с каждым кадром
+        r = frame * 8
+        spark_x = cx + r * math.cos(angle)
+        spark_y = cy + r * math.sin(angle)
+        # Размер искры уменьшается
+        size = max(2, 8 - frame * 0.4)
+        # Рисуем искру на canvas (after — чтобы поверх плиток)
+        with self.canvas.after:
+            r_col, g_col, b_col, a = col
+            # Затухающий цвет
+            fade = 1.0 - frame / 15.0
+            Color(r_col, g_col, b_col, fade)
+            Ellipse(
+                pos=(spark_x - size / 2, spark_y - size / 2),
+                size=(size, size)
+            )
+        # Планируем следующий кадр
+        Clock.schedule_once(
+            lambda dt: self._draw_spark(cx, cy, angle, col, frame + 1),
+            0.05
+        )
+        # Очищаем canvas.after после окончания всей анимации
+        if frame == 0:
+            Clock.schedule_once(
+                lambda dt: self.canvas.after.clear(),
+                3.0
+            )
 
     def _show_popup(self, title, message):
         popup = Popup(
@@ -967,16 +1057,16 @@ class MahjongApp(App):
             spacing=10
         )
 
-        # Счёт сверху панели
+        # Счёт сверху панели (компактно)
         self.score_label = Label(
-            text='Пары:\n0 / 72',
-            font_size=22,
+            text='Пары: 0/72\n00:00\n🔀 5',
+            font_size=18,
             bold=True,
             color=(1, 1, 1, 1),
             halign='center',
             valign='middle',
             size_hint_y=None,
-            height=80
+            height=100
         )
         self.score_label.bind(size=lambda l, s: setattr(l, 'text_size', s))
         side_panel.add_widget(self.score_label)
@@ -1002,8 +1092,12 @@ class MahjongApp(App):
         return root
 
     def _update_score(self, dt):
+        m = self.board.elapsed_seconds // 60
+        s = self.board.elapsed_seconds % 60
         self.score_label.text = (
-            f'Пары:\n{self.board.score} / {self.board.total_pairs}'
+            f'Пары: {self.board.score}/{self.board.total_pairs}\n'
+            f'⏱ {m:02d}:{s:02d}\n'
+            f'🔀 {self.board.shuffles_left}'
         )
 
 
