@@ -155,6 +155,7 @@ class MahjongBoard(Widget):
         self.score = 0
         self.history = []
         self.shuffles_left = 5
+        self.undos_used = 0
         self.game_over = False
         self.start_time = Clock.get_boottime()
         self.elapsed_seconds = 0
@@ -179,9 +180,9 @@ class MahjongBoard(Widget):
         # ширина = 14.32 * tile_w
         # высота = 9.32 * tile_h = 9.32 * 1.25 * tile_w = 11.65 * tile_w
         max_w_by_width = usable_w / 14.32
-        max_w_by_height = usable_h / 11.65
+        max_w_by_height = usable_h / 11.0
         tile_w = min(max_w_by_width, max_w_by_height)
-        tile_h = tile_w * 1.25
+        tile_h = tile_w * 1.18
         return tile_w, tile_h
 
     def _board_offset(self, tile_w, tile_h):
@@ -780,11 +781,12 @@ class MahjongBoard(Widget):
     def undo(self):
         if not self.history:
             return
-        t1, t2 = self.history.pop()
-        t1.removed = False
-        t2.removed = False
-        self.score -= 1
-        self._redraw()
+        if not hasattr(self, 'undos_used'):
+            self.undos_used = 0
+        if self.undos_used >= 5:
+            self._show_popup('Отмена', 'Больше нельзя отменять.\nМаксимум 5 раз за игру.')
+           return
+        self.undos_used += 1
 
     def shuffle(self):
         if self.shuffles_left <= 0:
