@@ -1114,7 +1114,7 @@ class MahjongApp(App):
         m = self.board.elapsed_seconds // 60
         s = self.board.elapsed_seconds % 60
         self.score_label.text = f'{m:02d}:{s:02d}'
-        )
+        
         # Обновляем счётчики под кнопками
         if hasattr(self, 'btn_counters'):
             self.btn_counters['hint'].text = '∞'
