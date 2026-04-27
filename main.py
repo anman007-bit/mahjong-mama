@@ -894,8 +894,9 @@ class MahjongBoard(Widget):
     def _show_popup(self, title, message):
         popup = Popup(
             title=title,
-            content=Label(text=message, font_size=24),
-            size_hint=(0.6, 0.4)
+            title_size='28sp',
+            content=Label(text=message, font_size=32),
+            size_hint=(0.7, 0.45)
         )
         popup.open()
 
