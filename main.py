@@ -1063,14 +1063,14 @@ class MahjongApp(App):
 
         # Счёт сверху панели (компактно)
         self.score_label = Label(
-            text='Пары: 0/72\n00:00\n🔀 5',
-            font_size=18,
+            text='00:00',
+            font_size=42,
             bold=True,
             color=(1, 1, 1, 1),
             halign='center',
             valign='middle',
             size_hint_y=None,
-            height=100
+            height=80
         )
         self.score_label.bind(size=lambda l, s: setattr(l, 'text_size', s))
         side_panel.add_widget(self.score_label)
@@ -1113,9 +1113,7 @@ class MahjongApp(App):
     def _update_score(self, dt):
         m = self.board.elapsed_seconds // 60
         s = self.board.elapsed_seconds % 60
-        self.score_label.text = (
-            f'Пары: {self.board.score}/{self.board.total_pairs}\n'
-            f'⏱ {m:02d}:{s:02d}'
+        self.score_label.text = f'{m:02d}:{s:02d}'
         )
         # Обновляем счётчики под кнопками
         if hasattr(self, 'btn_counters'):
