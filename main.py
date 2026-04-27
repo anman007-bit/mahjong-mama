@@ -126,19 +126,18 @@ class MahjongBoard(Widget):
         self.total_pairs = 72
         self.history = []
         self.shuffles_left = 5  # лимит перемешиваний
-        self.start_time = None  # время старта игры
-        self.elapsed_seconds = 0  # секунды прошло
+        self.elapsed_seconds = 0  # секунды прошло с начала игры
         self.game_over = False  # игра завершена
+        self.timer_running = True  # таймер активен
         self._create_tiles()
-        self.start_time = Clock.get_boottime()
         self.bind(size=self._redraw, pos=self._redraw)
         Clock.schedule_once(lambda dt: self._redraw(), 0)
         # Таймер обновляется раз в секунду
         Clock.schedule_interval(self._tick_timer, 1.0)
 
     def _tick_timer(self, dt):
-        if self.start_time and not self.game_over:
-            self.elapsed_seconds = int(Clock.get_boottime() - self.start_time)
+        if self.timer_running and not self.game_over:
+            self.elapsed_seconds += 1
 
     def _create_tiles(self):
         pool = build_tile_pool()
@@ -157,8 +156,8 @@ class MahjongBoard(Widget):
         self.shuffles_left = 5
         self.undos_used = 0
         self.game_over = False
-        self.start_time = Clock.get_boottime()
         self.elapsed_seconds = 0
+        self.timer_running = True
         self._create_tiles()
         self._redraw()
 
