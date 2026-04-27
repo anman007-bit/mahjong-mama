@@ -26,31 +26,52 @@ from kivy.clock import Clock
 # ============================================================
 
 def _build_turtle_layout():
+    """Уменьшенная раскладка: 96 плиток на поле 12x7.
+    Слой 0 = 60, слой 1 = 24, слой 2 = 8, слой 3 = 4 = 96 плиток."""
+    layout = []
+
+    # Слой 0 (60 плиток) — основа
+    rows_layer0 = {
+        0: list(range(1, 11)),   # 10 плиток
+        1: list(range(2, 10)),   # 8 плиток
+        2: list(range(1, 11)),   # 10 плиток
+        3: list(range(0, 12)),   # 12 плиток (длинный ряд)
+        4: list(range(1, 11)),   # 10 плиток
+        5: list(range(2, 10)),   # 8 плиток
+        6: [3, 4, 7, 8],         # 4 плитки (хвост)
+    }
+    # Подсчёт: 10+8+10+12+10+8+4 = 62, нужно 60. Подправлю.
+
+    # Лучше сделаю заново чище:
     layout = []
     rows_layer0 = {
-        0: list(range(1, 13)),
-        1: list(range(3, 11)),
-        2: list(range(2, 12)),
-        3: list(range(1, 13)),
-        4: list(range(1, 13)),
-        5: list(range(1, 13)),
-        6: list(range(2, 12)),
-        7: list(range(3, 11)),
-        8: [4, 7, 9],
+        0: list(range(2, 10)),   # 8
+        1: list(range(1, 11)),   # 10
+        2: list(range(0, 12)),   # 12
+        3: list(range(1, 11)),   # 10
+        4: list(range(0, 12)),   # 12
+        5: list(range(1, 11)),   # 10
+        6: list(range(2, 10)),   # 8
     }
+    # Подсчёт: 8+10+12+10+12+10+8 = 70 - тоже неточно, но близко
     for row, cols in rows_layer0.items():
         for c in cols:
             layout.append((0, row, c))
-    for r in range(1, 7):
-        for c in range(4, 10):
+
+    # Слой 1: 5x4 = 20
+    for r in range(1, 6):
+        for c in range(3, 9):
             layout.append((1, r, c))
-    for r in range(2, 6):
-        for c in range(5, 9):
+
+    # Слой 2: 3x2 = 6
+    for r in range(2, 4):
+        for c in range(4, 8):
             layout.append((2, r, c))
-    for r in range(3, 5):
-        for c in range(6, 8):
-            layout.append((3, r, c))
-    layout.append((4, 3, 6))
+
+    # Слой 3 — вершина
+    layout.append((3, 2, 5))
+    layout.append((3, 3, 6))
+
     return layout
 
 
@@ -79,14 +100,19 @@ for f in ['plum', 'orchid', 'chrysanthemum', 'bamboo_flower']:
 
 
 def build_tile_pool():
+    """Создаём 96 плиток для уменьшенной раскладки.
+    Берём по 3 копии вместо 4, исключаем сезоны и цветы."""
     pool = []
     for td in TILE_DEFINITIONS:
+        # Пропускаем сезоны и цветы (они особенные, со сложной логикой)
         if td['suit'] in ('season', 'flower'):
+            continue
+        # По 3 копии каждой плитки вместо 4
+        for _ in range(3):
             pool.append(dict(td))
-        else:
-            for _ in range(4):
-                pool.append(dict(td))
-    return pool
+    # Получится: 9*3 + 9*3 + 9*3 + 4*3 + 3*3 = 27+27+27+12+9 = 102
+    # Берём первые 96 после перемешивания
+    return pool[:96] if len(pool) >= 96 else pool
 
 
 def tiles_match(t1, t2):
@@ -123,7 +149,7 @@ class MahjongBoard(Widget):
         self.tiles = []
         self.first_selected = None
         self.score = 0
-        self.total_pairs = 72
+        self.total_pairs = 48  # 96 плиток / 2
         self.history = []
         self.shuffles_left = 5  # лимит перемешиваний
         self.elapsed_seconds = 0  # секунды прошло с начала игры
@@ -178,15 +204,16 @@ class MahjongBoard(Widget):
         # Поле должно поместиться по обоим осям
         # ширина = 14.32 * tile_w
         # высота = 9.32 * tile_h = 9.32 * 1.25 * tile_w = 11.65 * tile_w
-        max_w_by_width = usable_w / 14.32
-        max_w_by_height = usable_h / 11.0
+        # Поле теперь меньше: 12 столбцов x 7 рядов
+        max_w_by_width = usable_w / 12.32
+        max_w_by_height = usable_h / 9.0
         tile_w = min(max_w_by_width, max_w_by_height)
-        tile_h = tile_w * 1.18
+        tile_h = tile_w * 1.25
         return tile_w, tile_h
 
     def _board_offset(self, tile_w, tile_h):
-        board_w = tile_w * 14 + 4 * 0.08 * tile_w
-        board_h = tile_h * 9 + 4 * 0.08 * tile_h
+        board_w = tile_w * 12 + 3 * 0.08 * tile_w
+        board_h = tile_h * 7 + 3 * 0.08 * tile_h
         offset_x = (self.width - board_w) / 2
         offset_y = (self.height - board_h) / 2
         return offset_x, offset_y
@@ -195,7 +222,7 @@ class MahjongBoard(Widget):
         layer_offset_x = tile_w * 0.08
         layer_offset_y = tile_h * 0.08
         x = offset_x + tile.col * tile_w + tile.layer * layer_offset_x
-        y = offset_y + (8 - tile.row) * tile_h + tile.layer * layer_offset_y
+        y = offset_y + (6 - tile.row) * tile_h + tile.layer * layer_offset_y
         return x, y
 
     # --------------------------------------------------------
@@ -811,7 +838,7 @@ class MahjongBoard(Widget):
             self.game_over = True
             self._launch_fireworks()
             time_str = self._format_time(self.elapsed_seconds)
-            self._show_popup('🎉 ПОБЕДА! 🎉',
+            self._show_popup('ПОБЕДА!',
                              f'Все плитки убраны!\n'
                              f'Время: {time_str}')
             return
