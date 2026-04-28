@@ -26,51 +26,32 @@ from kivy.clock import Clock
 # ============================================================
 
 def _build_turtle_layout():
-    """Уменьшенная раскладка: 96 плиток на поле 12x7.
-    Слой 0 = 60, слой 1 = 24, слой 2 = 8, слой 3 = 4 = 96 плиток."""
+    """Раскладка ПИРАМИДА: 94 плитки = 47 пар.
+    Слой 0 = 60 (10x6), Слой 1 = 24 (8x3), Слой 2 = 8 (4x2), Слой 3 = 2.
+    Все слои центрированы друг над другом."""
     layout = []
 
-    # Слой 0 (60 плиток) — основа
-    rows_layer0 = {
-        0: list(range(1, 11)),   # 10 плиток
-        1: list(range(2, 10)),   # 8 плиток
-        2: list(range(1, 11)),   # 10 плиток
-        3: list(range(0, 12)),   # 12 плиток (длинный ряд)
-        4: list(range(1, 11)),   # 10 плиток
-        5: list(range(2, 10)),   # 8 плиток
-        6: [3, 4, 7, 8],         # 4 плитки (хвост)
-    }
-    # Подсчёт: 10+8+10+12+10+8+4 = 62, нужно 60. Подправлю.
+    # Слой 0 (основа) — 10 столбцов × 6 рядов = 60 плиток
+    # Столбцы 1-10, ряды 0-5
+    for row in range(0, 6):
+        for col in range(1, 11):
+            layout.append((0, row, col))
 
-    # Лучше сделаю заново чище:
-    layout = []
-    rows_layer0 = {
-        0: list(range(2, 10)),   # 8
-        1: list(range(1, 11)),   # 10
-        2: list(range(0, 12)),   # 12
-        3: list(range(1, 11)),   # 10
-        4: list(range(0, 12)),   # 12
-        5: list(range(1, 11)),   # 10
-        6: list(range(2, 10)),   # 8
-    }
-    # Подсчёт: 8+10+12+10+12+10+8 = 70 - тоже неточно, но близко
-    for row, cols in rows_layer0.items():
-        for c in cols:
-            layout.append((0, row, c))
+    # Слой 1 — 8 столбцов × 3 ряда = 24 плитки
+    # Центрирован: столбцы 2-9, ряды 1-3 (визуально в центре основы)
+    for row in range(1, 4):
+        for col in range(2, 10):
+            layout.append((1, row, col))
 
-    # Слой 1: 5x4 = 20
-    for r in range(1, 6):
-        for c in range(3, 9):
-            layout.append((1, r, c))
+    # Слой 2 — 4 столбца × 2 ряда = 8 плиток
+    # Ещё уже: столбцы 4-7, ряды 2-3
+    for row in range(2, 4):
+        for col in range(4, 8):
+            layout.append((2, row, col))
 
-    # Слой 2: 3x2 = 6
-    for r in range(2, 4):
-        for c in range(4, 8):
-            layout.append((2, r, c))
-
-    # Слой 3 — вершина
+    # Слой 3 — 2 плитки сверху
     layout.append((3, 2, 5))
-    layout.append((3, 3, 6))
+    layout.append((3, 2, 6))
 
     return layout
 
@@ -112,7 +93,7 @@ def build_tile_pool():
             pool.append(dict(td))
     # Получится: 9*3 + 9*3 + 9*3 + 4*3 + 3*3 = 27+27+27+12+9 = 102
     # Берём первые 96 после перемешивания
-    return pool[:96] if len(pool) >= 96 else pool
+    return pool[:94] if len(pool) >= 94 else pool
 
 
 def tiles_match(t1, t2):
@@ -149,7 +130,7 @@ class MahjongBoard(Widget):
         self.tiles = []
         self.first_selected = None
         self.score = 0
-        self.total_pairs = 48  # 96 плиток / 2
+        self.total_pairs = 47  # 94 плитки / 2
         self.history = []
         self.shuffles_left = 5  # лимит перемешиваний
         self.elapsed_seconds = 0  # секунды прошло с начала игры
@@ -204,16 +185,16 @@ class MahjongBoard(Widget):
         # Поле должно поместиться по обоим осям
         # ширина = 14.32 * tile_w
         # высота = 9.32 * tile_h = 9.32 * 1.25 * tile_w = 11.65 * tile_w
-        # Поле теперь меньше: 12 столбцов x 7 рядов
+        # Пирамида: 12 столбцов x 6 рядов
         max_w_by_width = usable_w / 12.32
-        max_w_by_height = usable_h / 9.0
+        max_w_by_height = usable_h / 7.8
         tile_w = min(max_w_by_width, max_w_by_height)
         tile_h = tile_w * 1.25
         return tile_w, tile_h
 
     def _board_offset(self, tile_w, tile_h):
         board_w = tile_w * 12 + 3 * 0.08 * tile_w
-        board_h = tile_h * 7 + 3 * 0.08 * tile_h
+        board_h = tile_h * 6 + 3 * 0.08 * tile_h
         offset_x = (self.width - board_w) / 2
         offset_y = (self.height - board_h) / 2
         return offset_x, offset_y
@@ -222,7 +203,7 @@ class MahjongBoard(Widget):
         layer_offset_x = tile_w * 0.08
         layer_offset_y = tile_h * 0.08
         x = offset_x + tile.col * tile_w + tile.layer * layer_offset_x
-        y = offset_y + (6 - tile.row) * tile_h + tile.layer * layer_offset_y
+        y = offset_y + (5 - tile.row) * tile_h + tile.layer * layer_offset_y
         return x, y
 
     # --------------------------------------------------------
