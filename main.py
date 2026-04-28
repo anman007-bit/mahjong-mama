@@ -81,19 +81,50 @@ for f in ['plum', 'orchid', 'chrysanthemum', 'bamboo_flower']:
 
 
 def build_tile_pool():
-    """Создаём 96 плиток для уменьшенной раскладки.
-    Берём по 3 копии вместо 4, исключаем сезоны и цветы."""
+    """Создаём 94 плитки для пирамиды, ВСЕГДА парное количество каждой плитки.
+    Берём по 2 копии каждой плитки (точки/бамбук/символы — 9 типов × 2 = 18),
+    плюс ветры и драконы по 2 копии."""
     pool = []
+    # Точки 1-9: по 2 копии = 18
+    # Бамбук 1-9: по 2 копии = 18
+    # Символы 1-9: по 2 копии = 18
+    # Итого 54
     for td in TILE_DEFINITIONS:
-        # Пропускаем сезоны и цветы (они особенные, со сложной логикой)
-        if td['suit'] in ('season', 'flower'):
-            continue
-        # По 3 копии каждой плитки вместо 4
-        for _ in range(3):
-            pool.append(dict(td))
-    # Получится: 9*3 + 9*3 + 9*3 + 4*3 + 3*3 = 27+27+27+12+9 = 102
-    # Берём первые 96 после перемешивания
-    return pool[:94] if len(pool) >= 94 else pool
+        if td['suit'] in ('dots', 'bamboo', 'characters'):
+            for _ in range(2):
+                pool.append(dict(td))
+
+    # Ветры (4 типа) и драконы (3 типа): по 4 копии каждого = 16+12 = 28
+    # Итого 54 + 28 = 82
+    for td in TILE_DEFINITIONS:
+        if td['suit'] in ('wind', 'dragon'):
+            for _ in range(4):
+                pool.append(dict(td))
+
+    # Дополнительно нужно довести до 94
+    # Добавим ещё по 2 копии каждой основной плитки (точки/бамбук/символы)
+    # выбранных случайно, но строго парами
+    extra_needed = 94 - len(pool)  # сколько ещё нужно
+    if extra_needed > 0:
+        # extra_needed должно быть чётным
+        if extra_needed % 2 != 0:
+            extra_needed -= 1  # делаем чётным
+        # Добавляем парами
+        main_types = [td for td in TILE_DEFINITIONS
+                      if td['suit'] in ('dots', 'bamboo', 'characters')]
+        random.shuffle(main_types)
+        idx = 0
+        while extra_needed > 0 and idx < len(main_types):
+            pool.append(dict(main_types[idx]))
+            pool.append(dict(main_types[idx]))
+            extra_needed -= 2
+            idx += 1
+
+    # На всякий случай обрезаем до 94 (если получилось больше)
+    if len(pool) > 94:
+        pool = pool[:94]
+
+    return pool
 
 
 def tiles_match(t1, t2):
