@@ -132,7 +132,7 @@ class MahjongBoard(Widget):
         self.score = 0
         self.total_pairs = 47  # 94 плитки / 2
         self.history = []
-        self.shuffles_left = 5  # лимит перемешиваний
+        self.shuffles_left = 10  # лимит перемешиваний
         self.elapsed_seconds = 0  # секунды прошло с начала игры
         self.game_over = False  # игра завершена
         self.timer_running = True  # таймер активен
@@ -160,7 +160,7 @@ class MahjongBoard(Widget):
         self.first_selected = None
         self.score = 0
         self.history = []
-        self.shuffles_left = 5
+        self.shuffles_left = 10
         self.undos_used = 0
         self.game_over = False
         self.elapsed_seconds = 0
@@ -185,23 +185,23 @@ class MahjongBoard(Widget):
         # Поле должно поместиться по обоим осям
         # ширина = 14.32 * tile_w
         # высота = 9.32 * tile_h = 9.32 * 1.25 * tile_w = 11.65 * tile_w
-        # Пирамида: 12 столбцов x 6 рядов
-        max_w_by_width = usable_w / 12.32
-        max_w_by_height = usable_h / 7.8
+        # Пирамида с увеличенным смещением слоёв
+        max_w_by_width = usable_w / 12.6
+        max_w_by_height = usable_h / 8.2
         tile_w = min(max_w_by_width, max_w_by_height)
         tile_h = tile_w * 1.25
         return tile_w, tile_h
 
     def _board_offset(self, tile_w, tile_h):
-        board_w = tile_w * 12 + 3 * 0.08 * tile_w
-        board_h = tile_h * 6 + 3 * 0.08 * tile_h
+        board_w = tile_w * 12 + 3 * 0.15 * tile_w
+        board_h = tile_h * 6 + 3 * 0.15 * tile_h
         offset_x = (self.width - board_w) / 2
         offset_y = (self.height - board_h) / 2
         return offset_x, offset_y
 
     def _tile_screen_pos(self, tile, tile_w, tile_h, offset_x, offset_y):
-        layer_offset_x = tile_w * 0.08
-        layer_offset_y = tile_h * 0.08
+        layer_offset_x = tile_w * 0.15
+        layer_offset_y = tile_h * 0.15
         x = offset_x + tile.col * tile_w + tile.layer * layer_offset_x
         y = offset_y + (5 - tile.row) * tile_h + tile.layer * layer_offset_y
         return x, y
@@ -804,9 +804,35 @@ class MahjongBoard(Widget):
         self.shuffles_left -= 1
         remaining = [t for t in self.tiles if not t.removed]
         defs = [t.tile_def for t in remaining]
-        random.shuffle(defs)
-        for t, d in zip(remaining, defs):
-            t.tile_def = d
+
+        # Умное перемешивание: пробуем до 50 раз, ищем расклад с минимум 5 ходами
+        best_defs = None
+        best_count = 0
+        target_moves = 5  # хотим минимум 5 возможных ходов
+        for attempt in range(50):
+            random.shuffle(defs)
+            for t, d in zip(remaining, defs):
+                t.tile_def = d
+            # Считаем сколько возможных пар сейчас
+            free = [t for t in remaining if self._is_free(t)]
+            count = 0
+            for i in range(len(free)):
+                for j in range(i + 1, len(free)):
+                    if tiles_match(free[i].tile_def, free[j].tile_def):
+                        count += 1
+            # Если нашли хороший вариант — берём его
+            if count >= target_moves:
+                break
+            # Запоминаем лучшее на случай если ничего лучше не найдём
+            if count > best_count:
+                best_count = count
+                best_defs = list(defs)
+
+        # Если за 50 попыток не нашли идеал — берём лучшее что было
+        if attempt == 49 and best_defs is not None:
+            for t, d in zip(remaining, best_defs):
+                t.tile_def = d
+
         self.first_selected = None
         for t in self.tiles:
             t.selected = False
