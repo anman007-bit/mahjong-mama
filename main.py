@@ -194,8 +194,6 @@ class MahjongTile:
 
 class MahjongBoard(Widget):
 
-    class MahjongBoard(Widget):
-
     def __init__(self, **kwargs):
         super().__init__(**kwargs)
         # Загружаем звуки
