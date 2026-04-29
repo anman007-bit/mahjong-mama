@@ -9,6 +9,43 @@
 
 import math
 import random
+import os
+import json
+
+# Путь к файлу с рекордами
+def get_records_file():
+    """Возвращает путь к файлу с рекордами на устройстве."""
+    try:
+        from android.storage import app_storage_path
+        path = app_storage_path()
+    except ImportError:
+        # Если не Android (например запуск на компьютере) - в текущей папке
+        path = os.path.dirname(os.path.abspath(__file__))
+    return os.path.join(path, 'mahjong_records.json')
+
+
+def load_record():
+    """Загружает лучшее время из файла. Возвращает None если рекорда ещё нет."""
+    try:
+        path = get_records_file()
+        if os.path.exists(path):
+            with open(path, 'r') as f:
+                data = json.load(f)
+                return data.get('best_time')
+    except Exception:
+        pass
+    return None
+
+
+def save_record(seconds):
+    """Сохраняет лучшее время в файл."""
+    try:
+        path = get_records_file()
+        with open(path, 'w') as f:
+            json.dump({'best_time': seconds}, f)
+        return True
+    except Exception:
+        return False
 
 from kivy.app import App
 from kivy.uix.widget import Widget
@@ -876,9 +913,21 @@ class MahjongBoard(Widget):
             self.game_over = True
             self._launch_fireworks()
             time_str = self._format_time(self.elapsed_seconds)
-            self._show_popup('ПОБЕДА!',
-                             f'Все плитки убраны!\n'
-                             f'Время: {time_str}')
+            # Проверяем рекорд
+            old_record = load_record()
+            current = self.elapsed_seconds
+            is_new_record = (old_record is None) or (current < old_record)
+            if is_new_record:
+                save_record(current)
+                message = (f'НОВЫЙ РЕКОРД!\n\n'
+                           f'Время: {time_str}\n')
+                if old_record is not None:
+                    message += f'Прошлый: {self._format_time(old_record)}'
+            else:
+                message = (f'Все плитки убраны!\n\n'
+                           f'Время: {time_str}\n'
+                           f'Рекорд: {self._format_time(old_record)}')
+            self._show_popup('ПОБЕДА!', message)
             return
         if not self._find_hint():
             self._show_popup('Тупик',
