@@ -11,9 +11,10 @@ package.domain = org.myfamily
 
 # Папка с исходниками
 source.dir = .
+source.include_patterns = sounds/*
 
 # Какие файлы включить
-source.include_exts = py,png,jpg,kv,atlas,ttf
+source.include_exts = py,png,jpg,kv,atlas,ttf,mp3,wav,ogg
 
 # Версия
 version = 2.0
