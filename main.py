@@ -55,6 +55,7 @@ from kivy.uix.label import Label
 from kivy.uix.popup import Popup
 from kivy.graphics import Color, Rectangle, Line, RoundedRectangle, Ellipse
 from kivy.core.window import Window
+from kivy.core.audio import SoundLoader
 from kivy.clock import Clock
 
 
@@ -193,11 +194,56 @@ class MahjongTile:
 
 class MahjongBoard(Widget):
 
+    class MahjongBoard(Widget):
+
     def __init__(self, **kwargs):
         super().__init__(**kwargs)
+        # Загружаем звуки
+        self.sounds = self._load_sounds()
+        self.sound_enabled = True  # звуки можно включать/выключать
+        # Запускаем фоновую музыку
+        if self.sounds.get('background'):
+            self.sounds['background'].loop = True
+            self.sounds['background'].volume = 0.3
+            self.sounds['background'].play()
         self.tiles = []
         self.first_selected = None
         self.score = 0
+
+    def _load_sounds(self):
+        """Загружает все звуки игры."""
+        import os
+        # Папка где лежит main.py + sounds
+        base = os.path.dirname(os.path.abspath(__file__))
+        sounds_dir = os.path.join(base, 'sounds')
+        files = {
+            'knock': 'Knock.mp3',
+            'dzin': 'Dzin.wav',
+            'clue': 'Clue.mp3',
+            'mixing': 'Mixing.mp3',
+            'boom': 'Boom.wav',
+            'background': 'Background.mp3',
+        }
+        sounds = {}
+        for key, filename in files.items():
+            path = os.path.join(sounds_dir, filename)
+            if os.path.exists(path):
+                snd = SoundLoader.load(path)
+                if snd:
+                    sounds[key] = snd
+        return sounds
+
+    def play_sound(self, key, volume=0.7):
+        """Проигрывает звук по ключу. Не играет если звуки выключены."""
+        if not self.sound_enabled:
+            return
+        snd = self.sounds.get(key)
+        if snd:
+            snd.volume = volume
+            # Перематываем в начало (на случай если звук уже играет)
+            if snd.state == 'play':
+                snd.stop()
+            snd.play()
         self.total_pairs = 47  # 94 плитки / 2
         self.history = []
         self.shuffles_left = 10  # лимит перемешиваний
@@ -792,6 +838,7 @@ class MahjongBoard(Widget):
                 return
 
             if tiles_match(tile.tile_def, self.first_selected.tile_def):
+                self.play_sound('dzin')  # совпадение пары
                 self.history.append((self.first_selected, tile))
                 self.first_selected.removed = True
                 tile.removed = True
@@ -800,11 +847,13 @@ class MahjongBoard(Widget):
                 self._redraw()
                 self._check_game_state()
             else:
+                self.play_sound('knock')  # просто переключили выбор
                 self.first_selected.selected = False
                 tile.selected = True
                 self.first_selected = tile
                 self._redraw()
         else:
+            self.play_sound('knock')  # выбор первой плитки
             tile.selected = True
             self.first_selected = tile
             self._redraw()
@@ -837,11 +886,13 @@ class MahjongBoard(Widget):
             self.first_selected = None
         hint = self._find_hint()
         if hint:
+            self.play_sound('clue')  # звук подсказки
             hint[0].hint = True
             hint[1].hint = True
             self._redraw()
             Clock.schedule_once(lambda dt: self._clear_hints_redraw(), 2.5)
         else:
+            self.play_sound('clue')  # тот же звук для тупика
             self._show_popup('Подсказка',
                              'Нет доступных пар.\nНажмите "Перемешать"')
 
@@ -865,10 +916,13 @@ class MahjongBoard(Widget):
 
     def shuffle(self):
         if self.shuffles_left <= 0:
+            self.play_sound('clue')
             self._show_popup('Перемешивания закончились',
                              'Перемешать больше нельзя.\n'
                              'Нажмите "Новая игра"')
+            
             return
+        self.play_sound('mixing')  # звук перемешивания
         self.shuffles_left -= 1
         remaining = [t for t in self.tiles if not t.removed]
         defs = [t.tile_def for t in remaining]
@@ -911,6 +965,7 @@ class MahjongBoard(Widget):
         remaining = [t for t in self.tiles if not t.removed]
         if not remaining:
             self.game_over = True
+            self.play_sound('boom', volume=0.9)  # барабан победы
             self._launch_fireworks()
             time_str = self._format_time(self.elapsed_seconds)
             # Проверяем рекорд
