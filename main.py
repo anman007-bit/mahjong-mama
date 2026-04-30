@@ -237,10 +237,11 @@ class MahjongBoard(Widget):
         sounds_dir = os.path.join(base, 'sounds')
         files = {
             'knock': 'Knock.mp3',
-            'dzin': 'Dzin.wav',
+            'dzin': 'Dzin.mp3',
             'clue': 'Clue.mp3',
             'mixing': 'Mixing.mp3',
-            'boom': 'Boom.wav',
+            'gonk': 'gonk.mp3',
+            'bell': 'bell.mp3',
             'background': 'Background.mp3',
         }
         sounds = {}
@@ -258,11 +259,12 @@ class MahjongBoard(Widget):
             return
         # Громкость по умолчанию для каждого звука
         default_volumes = {
-            'knock': 0.4,    # стук плитки - тихо (часто играет)
-            'dzin': 0.6,     # звон струны - средне
-            'clue': 0.7,     # подсказка - чуть громче
-            'mixing': 0.8,   # перемешивание - громко
-            'boom': 1.0,     # барабан победы - максимум
+            'knock': 0.4,    # стук плитки
+            'dzin': 0.4,     # тупик "нет ходов"
+            'clue': 0.6,     # победа
+            'mixing': 0.8,   # перемешивание
+            'gonk': 0.7,     # новая игра
+            'bell': 0.4,     # подсказка
         }
         if volume is None:
             volume = default_volumes.get(key, 0.6)
@@ -291,6 +293,7 @@ class MahjongBoard(Widget):
             self.tiles.append(MahjongTile(pool[i], layer, row, col))
 
     def restart(self):
+        self.play_sound('gonk')  # звук начала новой игры
         self.first_selected = None
         self.score = 0
         self.history = []
@@ -906,13 +909,13 @@ class MahjongBoard(Widget):
             self.first_selected = None
         hint = self._find_hint()
         if hint:
-            self.play_sound('clue')  # звук подсказки
+            self.play_sound('bell')  # подсказка - колокольчик
             hint[0].hint = True
             hint[1].hint = True
             self._redraw()
             Clock.schedule_once(lambda dt: self._clear_hints_redraw(), 2.5)
         else:
-            self.play_sound('clue')  # тот же звук для тупика
+            self.play_sound('dzin')  # тупик - струна
             self._show_popup('Подсказка',
                              'Нет доступных пар.\nНажмите "Перемешать"')
 
@@ -936,7 +939,7 @@ class MahjongBoard(Widget):
 
     def shuffle(self):
         if self.shuffles_left <= 0:
-            self.play_sound('clue')
+            self.play_sound('dzin')
             self._show_popup('Перемешивания закончились',
                              'Перемешать больше нельзя.\n'
                              'Нажмите "Новая игра"')
@@ -985,7 +988,7 @@ class MahjongBoard(Widget):
         remaining = [t for t in self.tiles if not t.removed]
         if not remaining:
             self.game_over = True
-            self.play_sound('boom', volume=0.9)  # барабан победы
+            self.play_sound('clue')  # победа
             self._launch_fireworks()
             time_str = self._format_time(self.elapsed_seconds)
             # Проверяем рекорд
