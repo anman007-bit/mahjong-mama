@@ -252,16 +252,26 @@ class MahjongBoard(Widget):
                     sounds[key] = snd
         return sounds
 
-    def play_sound(self, key, volume=0.7):
-        """Проигрывает звук по ключу. Не играет если звуки выключены."""
+    def play_sound(self, key, volume=None):
+        """Проигрывает звук по ключу с правильной громкостью."""
         if not self.sound_enabled:
             return
+        # Громкость по умолчанию для каждого звука
+        default_volumes = {
+            'knock': 0.4,    # стук плитки - тихо (часто играет)
+            'dzin': 0.6,     # звон струны - средне
+            'clue': 0.7,     # подсказка - чуть громче
+            'mixing': 0.8,   # перемешивание - громко
+            'boom': 1.0,     # барабан победы - максимум
+        }
+        if volume is None:
+            volume = default_volumes.get(key, 0.6)
         try:
             snd = self.sounds.get(key)
             if snd:
                 snd.volume = volume
-                if snd.state == 'play':
-                    snd.stop()
+                # НЕ останавливаем старый звук — пусть доиграет
+                # Это убирает потрескивания
                 snd.play()
         except Exception as e:
             print(f'[SOUNDS] Ошибка воспроизведения {key}: {e}')
@@ -930,37 +940,37 @@ class MahjongBoard(Widget):
             self._show_popup('Перемешивания закончились',
                              'Перемешать больше нельзя.\n'
                              'Нажмите "Новая игра"')
-            
             return
-        self.play_sound('mixing')  # звук перемешивания
+        # Запускаем звук перемешивания и через 1.5 секунды само перемешивание
+        self.play_sound('mixing')
         self.shuffles_left -= 1
+        Clock.schedule_once(lambda dt: self._do_shuffle(), 1.5)
+
+    def _do_shuffle(self):
+        """Сам процесс перемешивания (вызывается через 1.5 сек после звука)."""
         remaining = [t for t in self.tiles if not t.removed]
         defs = [t.tile_def for t in remaining]
 
         # Умное перемешивание: пробуем до 50 раз, ищем расклад с минимум 5 ходами
         best_defs = None
         best_count = 0
-        target_moves = 5  # хотим минимум 5 возможных ходов
+        target_moves = 5
         for attempt in range(50):
             random.shuffle(defs)
             for t, d in zip(remaining, defs):
                 t.tile_def = d
-            # Считаем сколько возможных пар сейчас
             free = [t for t in remaining if self._is_free(t)]
             count = 0
             for i in range(len(free)):
                 for j in range(i + 1, len(free)):
                     if tiles_match(free[i].tile_def, free[j].tile_def):
                         count += 1
-            # Если нашли хороший вариант — берём его
             if count >= target_moves:
                 break
-            # Запоминаем лучшее на случай если ничего лучше не найдём
             if count > best_count:
                 best_count = count
                 best_defs = list(defs)
 
-        # Если за 50 попыток не нашли идеал — берём лучшее что было
         if attempt == 49 and best_defs is not None:
             for t, d in zip(remaining, best_defs):
                 t.tile_def = d
