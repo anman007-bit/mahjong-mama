@@ -240,8 +240,8 @@ class MahjongBoard(Widget):
             'dzin': 'Dzin.mp3',
             'clue': 'Clue.mp3',
             'mixing': 'Mixing.mp3',
-            'gonk': 'gonk.mp3',
-            'bell': 'bell.mp3',
+            'gonk': 'Gonk.mp3',
+            'bell': 'Bell.mp3',
             'background': 'Background.mp3',
         }
         sounds = {}
@@ -861,7 +861,7 @@ class MahjongBoard(Widget):
                 return
 
             if tiles_match(tile.tile_def, self.first_selected.tile_def):
-                self.play_sound('dzin')  # совпадение пары
+                self.play_sound('knock')  # совпадение пары
                 self.history.append((self.first_selected, tile))
                 self.first_selected.removed = True
                 tile.removed = True
@@ -936,6 +936,18 @@ class MahjongBoard(Widget):
             self._show_popup('Отмена', 'Больше нельзя отменять.\nМаксимум 5 раз за игру.')
             return
         self.undos_used += 1
+        # Возвращаем последнюю снятую пару
+        tile1, tile2 = self.history.pop()
+        tile1.removed = False
+        tile2.removed = False
+        self.score -= 1
+        # Сбрасываем выделение, если что-то выбрано
+        if self.first_selected is not None:
+            self.first_selected.selected = False
+            self.first_selected = None
+        self._clear_hints()
+        self.play_sound('knock')
+        self._redraw()
 
     def shuffle(self):
         if self.shuffles_left <= 0:
