@@ -196,14 +196,23 @@ class MahjongBoard(Widget):
 
     def __init__(self, **kwargs):
         super().__init__(**kwargs)
-        # Загружаем звуки
-        self.sounds = self._load_sounds()
-        self.sound_enabled = True  # звуки можно включать/выключать
-        # Запускаем фоновую музыку
-        if self.sounds.get('background'):
-            self.sounds['background'].loop = True
-            self.sounds['background'].volume = 0.3
-            self.sounds['background'].play()
+        # Загружаем звуки в защищённом режиме
+        self.sounds = {}
+        self.sound_enabled = True
+        try:
+            self.sounds = self._load_sounds()
+        except Exception as e:
+            print(f'[SOUNDS] Ошибка загрузки звуков: {e}')
+            self.sounds = {}
+        # Запускаем фоновую музыку (только если загрузилась)
+        try:
+            bg = self.sounds.get('background')
+            if bg:
+                bg.loop = True
+                bg.volume = 0.3
+                bg.play()
+        except Exception as e:
+            print(f'[SOUNDS] Ошибка воспроизведения музыки: {e}')
         self.tiles = []
         self.first_selected = None
         self.score = 0
@@ -235,12 +244,15 @@ class MahjongBoard(Widget):
         """Проигрывает звук по ключу. Не играет если звуки выключены."""
         if not self.sound_enabled:
             return
-        snd = self.sounds.get(key)
-        if snd:
-            snd.volume = volume
-            # Перематываем в начало (на случай если звук уже играет)
-            if snd.state == 'play':
-                snd.stop()
+        try:
+            snd = self.sounds.get(key)
+            if snd:
+                snd.volume = volume
+                if snd.state == 'play':
+                    snd.stop()
+                snd.play()
+        except Exception as e:
+            print(f'[SOUNDS] Ошибка воспроизведения {key}: {e}')
             snd.play()
         self.total_pairs = 47  # 94 плитки / 2
         self.history = []
