@@ -196,9 +196,23 @@ class MahjongBoard(Widget):
 
     def __init__(self, **kwargs):
         super().__init__(**kwargs)
-        # Звуки временно отключены - тестируем стабильность
+        # Звуки: пробуем только фоновую музыку
         self.sounds = {}
-        self.sound_enabled = False
+        self.sound_enabled = True
+        try:
+            self.sounds = self._load_sounds()
+        except Exception as e:
+            print(f'[SOUNDS] Ошибка загрузки: {e}')
+            self.sounds = {}
+        # Запускаем фоновую музыку (если загрузилась)
+        try:
+            bg = self.sounds.get('background')
+            if bg:
+                bg.loop = True
+                bg.volume = 0.3
+                bg.play()
+        except Exception as e:
+            print(f'[SOUNDS] Ошибка музыки: {e}')
         self.tiles = []
         self.first_selected = None
         self.score = 0
