@@ -241,7 +241,7 @@ class MahjongBoard(Widget):
             'clue': 'Clue.mp3',
             'mixing': 'Mixing.mp3',
             'boom': 'Boom.wav',
-            'background': 'Background.mp3',
+            'background': 'Background.ogg',
         }
         sounds = {}
         for key, filename in files.items():
