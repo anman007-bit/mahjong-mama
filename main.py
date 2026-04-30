@@ -202,6 +202,18 @@ class MahjongBoard(Widget):
         self.tiles = []
         self.first_selected = None
         self.score = 0
+        self.total_pairs = 47  # 94 плитки / 2
+        self.history = []
+        self.shuffles_left = 10  # лимит перемешиваний
+        self.undos_used = 0
+        self.elapsed_seconds = 0  # секунды прошло с начала игры
+        self.game_over = False  # игра завершена
+        self.timer_running = True  # таймер активен
+        self._create_tiles()
+        self.bind(size=self._redraw, pos=self._redraw)
+        Clock.schedule_once(lambda dt: self._redraw(), 0)
+        # Таймер обновляется раз в секунду
+        Clock.schedule_interval(self._tick_timer, 1.0)
 
     def _load_sounds(self):
         """Загружает все звуки игры."""
@@ -239,18 +251,6 @@ class MahjongBoard(Widget):
                 snd.play()
         except Exception as e:
             print(f'[SOUNDS] Ошибка воспроизведения {key}: {e}')
-            snd.play()
-        self.total_pairs = 47  # 94 плитки / 2
-        self.history = []
-        self.shuffles_left = 10  # лимит перемешиваний
-        self.elapsed_seconds = 0  # секунды прошло с начала игры
-        self.game_over = False  # игра завершена
-        self.timer_running = True  # таймер активен
-        self._create_tiles()
-        self.bind(size=self._redraw, pos=self._redraw)
-        Clock.schedule_once(lambda dt: self._redraw(), 0)
-        # Таймер обновляется раз в секунду
-        Clock.schedule_interval(self._tick_timer, 1.0)
 
     def _tick_timer(self, dt):
         if self.timer_running and not self.game_over:
