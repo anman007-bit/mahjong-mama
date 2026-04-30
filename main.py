@@ -204,13 +204,15 @@ class MahjongBoard(Widget):
         except Exception as e:
             print(f'[SOUNDS] Ошибка загрузки: {e}')
             self.sounds = {}
-        # Запускаем фоновую музыку (если загрузилась)
+        # Запускаем фоновую музыку (если загрузилась) - БЕЗ loop, перезапуск вручную
         try:
             bg = self.sounds.get('background')
             if bg:
-                bg.loop = True
                 bg.volume = 0.3
                 bg.play()
+                # Перезапускаем каждые XX секунд (длина трека)
+                # Заменить XX на реальную длину твоего Background.ogg в секундах!
+                Clock.schedule_interval(self._restart_background, 310)
         except Exception as e:
             print(f'[SOUNDS] Ошибка музыки: {e}')
         self.tiles = []
@@ -277,6 +279,15 @@ class MahjongBoard(Widget):
                 snd.play()
         except Exception as e:
             print(f'[SOUNDS] Ошибка воспроизведения {key}: {e}')
+
+    def _restart_background(self, dt):
+        """Перезапуск фоновой музыки вручную (вместо loop=True - чтобы не трещало)."""
+        try:
+            bg = self.sounds.get('background')
+            if bg:
+                bg.play()
+        except Exception as e:
+            print(f'[SOUNDS] Ошибка перезапуска фона: {e}')
 
     def _tick_timer(self, dt):
         if self.timer_running and not self.game_over:
@@ -956,10 +967,10 @@ class MahjongBoard(Widget):
                              'Перемешать больше нельзя.\n'
                              'Нажмите "Новая игра"')
             return
-        # Запускаем звук перемешивания и через 1.5 секунды само перемешивание
+        # Запускаем звук перемешивания, само перемешивание - в середине звука
         self.play_sound('mixing')
         self.shuffles_left -= 1
-        Clock.schedule_once(lambda dt: self._do_shuffle(), 1.5)
+        Clock.schedule_once(lambda dt: self._do_shuffle(), 0.5)
 
     def _do_shuffle(self):
         """Сам процесс перемешивания (вызывается через 1.5 сек после звука)."""
