@@ -1512,7 +1512,6 @@ class MahjongApp(App):
             size=(70, 70),
             pos_hint={'x': 0.005, 'top': 0.99}
         )
-        )
         self.btn_music.bind(on_release=self._toggle_music)
         outer.add_widget(self.btn_music)
 
