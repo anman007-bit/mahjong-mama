@@ -1514,6 +1514,8 @@ class MahjongApp(App):
         )
         self.btn_music.bind(on_release=self._toggle_music)
         outer.add_widget(self.btn_music)
+        # Перерисовываем иконку после добавления (чтобы появилась сразу)
+        Clock.schedule_once(lambda dt: self.btn_music._update_icon(), 0.1)
 
         Clock.schedule_interval(self._update_score, 0.5)
         return outer
