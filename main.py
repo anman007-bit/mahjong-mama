@@ -58,6 +58,10 @@ from kivy.core.window import Window
 from kivy.core.audio import SoundLoader
 from kivy.clock import Clock
 
+# Не даём экрану засыпать пока игра запущена
+# Это удобно для маджонга - можно долго думать над ходом
+Window.keep_screen_on = True
+
 
 # ============================================================
 # РАСКЛАДКА "ЧЕРЕПАХА" (144 плитки)
