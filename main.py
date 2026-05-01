@@ -346,6 +346,17 @@ class MahjongBoard(Widget):
                 snd = SoundLoader.load(path)
                 if snd:
                     sounds[key] = snd
+        # Прогреваем декодер - проигрываем все звуки беззвучно
+        # Это нужно чтобы первый "настоящий" звук точно сыграл
+        # (особенно важно для редких звуков типа победы Clue)
+        for snd in sounds.values():
+            try:
+                snd.volume = 0
+                snd.play()
+                snd.stop()
+                snd.volume = 1
+            except Exception:
+                pass
         return sounds
 
     def play_sound(self, key, volume=None):
@@ -1243,6 +1254,10 @@ class IconButton(Button):
                 self._draw_shuffle(cx, cy, size)
             elif self.icon_type == 'new':
                 self._draw_plus(cx, cy, size)
+            elif self.icon_type == 'music':
+                self._draw_music_note(cx, cy, size)
+            elif self.icon_type == 'music_off':
+                self._draw_music_off(cx, cy, size)
 
     def _draw_lightbulb(self, cx, cy, size):
         """Лампочка — кружок с цоколем снизу."""
@@ -1343,18 +1358,88 @@ class IconButton(Button):
             size=(thickness, size * 1.1)
         )
 
+    def _draw_music_note(self, cx, cy, size):
+        """Нотка - кружок снизу + палочка вверх + флажок."""
+        # Кружок (головка ноты) - левый нижний
+        head_size = size * 0.45
+        head_x = cx - size * 0.4
+        head_y = cy - size * 0.4
+        Ellipse(
+            pos=(head_x, head_y),
+            size=(head_size, head_size)
+        )
+        # Палочка вверх от ноты
+        stick_x = head_x + head_size - size * 0.08
+        stick_w = size * 0.12
+        stick_h = size * 0.85
+        Rectangle(
+            pos=(stick_x, head_y + head_size * 0.4),
+            size=(stick_w, stick_h)
+        )
+        # Флажок (треугольник вверху)
+        Line(points=[
+            stick_x + stick_w, head_y + head_size * 0.4 + stick_h,
+            stick_x + stick_w + size * 0.4, head_y + head_size * 0.4 + stick_h - size * 0.2,
+            stick_x + stick_w + size * 0.3, head_y + head_size * 0.4 + stick_h - size * 0.5,
+        ], width=size * 0.12)
+
+    def _draw_music_off(self, cx, cy, size):
+        """Нотка с диагональной чертой - музыка выключена."""
+        # Сначала рисуем ноту (как обычно)
+        head_size = size * 0.45
+        head_x = cx - size * 0.4
+        head_y = cy - size * 0.4
+        Ellipse(
+            pos=(head_x, head_y),
+            size=(head_size, head_size)
+        )
+        stick_x = head_x + head_size - size * 0.08
+        stick_w = size * 0.12
+        stick_h = size * 0.85
+        Rectangle(
+            pos=(stick_x, head_y + head_size * 0.4),
+            size=(stick_w, stick_h)
+        )
+        # Перечёркивающая красная линия (диагональ)
+        Color(1, 0.3, 0.3, 1)
+        Line(points=[
+            cx - size * 0.7, cy - size * 0.7,
+            cx + size * 0.7, cy + size * 0.7,
+        ], width=size * 0.18)
+
 
 # ============================================================
 # ПРИЛОЖЕНИЕ — ГОРИЗОНТАЛЬНАЯ КОМПОНОВКА
 # ============================================================
 
 class MahjongApp(App):
+
+    def on_pause(self):
+        """Приложение свернули - ставим фон на паузу."""
+        if hasattr(self, 'board') and self.board.bg_music:
+            self.board.bg_music.pause()
+        return True  # True - разрешаем pause/resume
+
+    def on_resume(self):
+        """Приложение вернули - продолжаем фон."""
+        if hasattr(self, 'board') and self.board.bg_music:
+            self.board.bg_music.play()
+
+    def on_stop(self):
+        """Приложение закрывают - останавливаем фон."""
+        if hasattr(self, 'board') and self.board.bg_music:
+            self.board.bg_music.stop()
+
     def build(self):
         self.title = 'Маджонг'
 
         # Не даём экрану засыпать пока игра запущена
         # Это удобно для маджонга - можно долго думать над ходом
         Window.keep_screen_on = True
+
+        # Внешний контейнер - FloatLayout для наложения кнопок поверх игры
+        from kivy.uix.floatlayout import FloatLayout
+        outer = FloatLayout()
 
         # Главный контейнер: горизонтальный (поле слева, кнопки справа)
         root = BoxLayout(orientation='horizontal')
@@ -1418,8 +1503,39 @@ class MahjongApp(App):
 
         root.add_widget(side_panel)
 
+        # Добавляем основной игровой layout в FloatLayout
+        outer.add_widget(root)
+
+        # Кнопка управления музыкой - в левом верхнем углу
+        self.music_on = True  # музыка включена по умолчанию
+        self.btn_music = IconButton(
+            icon_type='music',
+            background_color=(0.5, 0.4, 0.7, 0.7),  # фиолетовая полупрозрачная
+            size_hint=(None, None),
+            size=(60, 60),
+            pos_hint={'x': 0.01, 'top': 0.98}
+        )
+        self.btn_music.bind(on_release=self._toggle_music)
+        outer.add_widget(self.btn_music)
+
         Clock.schedule_interval(self._update_score, 0.5)
-        return root
+        return outer
+
+    def _toggle_music(self, btn):
+        """Включить/выключить фоновую музыку."""
+        self.music_on = not self.music_on
+        if self.music_on:
+            # Включаем музыку
+            if self.board.bg_music:
+                self.board.bg_music.play()
+            self.btn_music.icon_type = 'music'
+        else:
+            # Выключаем музыку
+            if self.board.bg_music:
+                self.board.bg_music.pause()
+            self.btn_music.icon_type = 'music_off'
+        # Перерисовываем иконку на кнопке
+        self.btn_music._update_icon()
 
     def _update_score(self, dt):
         m = self.board.elapsed_seconds // 60
