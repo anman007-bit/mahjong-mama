@@ -20,7 +20,7 @@ source.include_exts = py,png,jpg,kv,atlas,ttf,mp3,wav,ogg
 version = 2.0
 
 # Зависимости
-requirements = python3,kivy==2.3.0
+requirements = python3,kivy==2.3.0,pyjnius
 
 # ГОРИЗОНТАЛЬНАЯ ОРИЕНТАЦИЯ (для маджонга так удобнее)
 orientation = landscape
