@@ -58,6 +58,99 @@ from kivy.core.window import Window
 from kivy.core.audio import SoundLoader
 from kivy.clock import Clock
 
+
+# ============================================================
+# КЛАСС ДЛЯ ФОНОВОЙ МУЗЫКИ
+# ============================================================
+# На Android используется нативный MediaPlayer (не дёргается на длинных треках)
+# На компьютере - обычный SoundLoader (для тестов)
+
+class BackgroundMusic:
+    """Обёртка над фоновой музыкой - работает и на Android, и на ПК."""
+
+    def __init__(self, filepath):
+        self.filepath = filepath
+        self.player = None
+        self.is_android = False
+        self.volume = 0.3
+        self._init_player()
+
+    def _init_player(self):
+        """Создаёт плеер. На Android - MediaPlayer, на ПК - SoundLoader."""
+        try:
+            # Пробуем загрузить нативный Android-плеер через pyjnius
+            from jnius import autoclass
+            MediaPlayer = autoclass('android.media.MediaPlayer')
+            self.player = MediaPlayer()
+            self.player.setDataSource(self.filepath)
+            self.player.setLooping(True)
+            self.player.setVolume(self.volume, self.volume)
+            self.player.prepare()
+            self.is_android = True
+            print('[MUSIC] Используем Android MediaPlayer')
+        except Exception as e:
+            # Не Android (или pyjnius недоступен) - используем SoundLoader
+            print(f'[MUSIC] Android MediaPlayer недоступен: {e}')
+            print('[MUSIC] Падаем на обычный SoundLoader')
+            try:
+                self.player = SoundLoader.load(self.filepath)
+                if self.player:
+                    self.player.loop = True
+                    self.player.volume = self.volume
+                self.is_android = False
+            except Exception as e2:
+                print(f'[MUSIC] SoundLoader тоже не сработал: {e2}')
+                self.player = None
+
+    def play(self):
+        """Запустить музыку."""
+        if not self.player:
+            return
+        try:
+            if self.is_android:
+                self.player.start()
+            else:
+                self.player.play()
+        except Exception as e:
+            print(f'[MUSIC] Ошибка play: {e}')
+
+    def pause(self):
+        """Поставить на паузу."""
+        if not self.player:
+            return
+        try:
+            if self.is_android:
+                self.player.pause()
+            else:
+                self.player.stop()
+        except Exception as e:
+            print(f'[MUSIC] Ошибка pause: {e}')
+
+    def stop(self):
+        """Остановить музыку полностью."""
+        if not self.player:
+            return
+        try:
+            if self.is_android:
+                self.player.stop()
+            else:
+                self.player.stop()
+        except Exception as e:
+            print(f'[MUSIC] Ошибка stop: {e}')
+
+    def set_volume(self, vol):
+        """Установить громкость 0.0 - 1.0."""
+        self.volume = vol
+        if not self.player:
+            return
+        try:
+            if self.is_android:
+                self.player.setVolume(vol, vol)
+            else:
+                self.player.volume = vol
+        except Exception as e:
+            print(f'[MUSIC] Ошибка set_volume: {e}')
+
 # ============================================================
 # РАСКЛАДКА "ЧЕРЕПАХА" (144 плитки)
 # ============================================================
@@ -203,13 +296,17 @@ class MahjongBoard(Widget):
         except Exception as e:
             print(f'[SOUNDS] Ошибка загрузки: {e}')
             self.sounds = {}
-        # Запускаем фоновую музыку (если загрузилась) - БЕЗ loop, перезапуск вручную
+        # Запускаем фоновую музыку через нативный Android MediaPlayer
+        # (раньше дёргалось через SoundLoader - теперь нет)
+        self.bg_music = None
         try:
-            bg = self.sounds.get('background')
-            if bg:
-                bg.loop = True
-                bg.volume = 0.3
-                bg.play()
+            import os
+            base = os.path.dirname(os.path.abspath(__file__))
+            bg_path = os.path.join(base, 'sounds', 'Background.wav')
+            if os.path.exists(bg_path):
+                self.bg_music = BackgroundMusic(bg_path)
+                self.bg_music.set_volume(0.3)
+                self.bg_music.play()
         except Exception as e:
             print(f'[SOUNDS] Ошибка музыки: {e}')
         self.tiles = []
@@ -241,7 +338,6 @@ class MahjongBoard(Widget):
             'mixing': 'Mixing.mp3',
             'gonk': 'Gonk.mp3',
             'bell': 'Bell.mp3',
-            'background': 'Background.wav',
         }
         sounds = {}
         for key, filename in files.items():
