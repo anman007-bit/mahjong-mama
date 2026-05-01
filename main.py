@@ -208,11 +208,9 @@ class MahjongBoard(Widget):
         try:
             bg = self.sounds.get('background')
             if bg:
+                bg.loop = True
                 bg.volume = 0.3
                 bg.play()
-                # Перезапускаем каждые XX секунд (длина трека)
-                # Заменить XX на реальную длину твоего Background.ogg в секундах!
-                Clock.schedule_interval(self._restart_background, 310)
         except Exception as e:
             print(f'[SOUNDS] Ошибка музыки: {e}')
         self.tiles = []
@@ -244,7 +242,7 @@ class MahjongBoard(Widget):
             'mixing': 'Mixing.mp3',
             'gonk': 'Gonk.mp3',
             'bell': 'Bell.mp3',
-            'background': 'Background.ogg',
+            'background': 'Background.wav',
         }
         sounds = {}
         for key, filename in files.items():
