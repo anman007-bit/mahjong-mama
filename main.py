@@ -1359,53 +1359,50 @@ class IconButton(Button):
         )
 
     def _draw_music_note(self, cx, cy, size):
-        """Нотка - кружок снизу + палочка вверх + флажок."""
-        # Кружок (головка ноты) - левый нижний
-        head_size = size * 0.45
-        head_x = cx - size * 0.4
-        head_y = cy - size * 0.4
+        """Нотка - головка снизу + палочка вверх. Центрирована по cx, cy."""
+        # Размер головки и палочки
+        head_size = size * 0.5
+        stick_w = size * 0.12
+        stick_h = size * 0.8
+        # Головка ноты - слева внизу относительно центра
+        head_x = cx - size * 0.25
+        head_y = cy - size * 0.5
         Ellipse(
             pos=(head_x, head_y),
             size=(head_size, head_size)
         )
-        # Палочка вверх от ноты
-        stick_x = head_x + head_size - size * 0.08
-        stick_w = size * 0.12
-        stick_h = size * 0.85
+        # Палочка справа от головки, идёт вверх
+        stick_x = head_x + head_size - stick_w
+        stick_y = head_y + head_size * 0.5
         Rectangle(
-            pos=(stick_x, head_y + head_size * 0.4),
+            pos=(stick_x, stick_y),
             size=(stick_w, stick_h)
         )
-        # Флажок (треугольник вверху)
-        Line(points=[
-            stick_x + stick_w, head_y + head_size * 0.4 + stick_h,
-            stick_x + stick_w + size * 0.4, head_y + head_size * 0.4 + stick_h - size * 0.2,
-            stick_x + stick_w + size * 0.3, head_y + head_size * 0.4 + stick_h - size * 0.5,
-        ], width=size * 0.12)
 
     def _draw_music_off(self, cx, cy, size):
-        """Нотка с диагональной чертой - музыка выключена."""
-        # Сначала рисуем ноту (как обычно)
-        head_size = size * 0.45
-        head_x = cx - size * 0.4
-        head_y = cy - size * 0.4
+        """Нотка с красной диагональной чертой - музыка выключена."""
+        # Сначала рисуем такую же ноту
+        head_size = size * 0.5
+        stick_w = size * 0.12
+        stick_h = size * 0.8
+        head_x = cx - size * 0.25
+        head_y = cy - size * 0.5
         Ellipse(
             pos=(head_x, head_y),
             size=(head_size, head_size)
         )
-        stick_x = head_x + head_size - size * 0.08
-        stick_w = size * 0.12
-        stick_h = size * 0.85
+        stick_x = head_x + head_size - stick_w
+        stick_y = head_y + head_size * 0.5
         Rectangle(
-            pos=(stick_x, head_y + head_size * 0.4),
+            pos=(stick_x, stick_y),
             size=(stick_w, stick_h)
         )
-        # Перечёркивающая красная линия (диагональ)
-        Color(1, 0.3, 0.3, 1)
+        # Красная диагональ через всю кнопку
+        Color(1, 0.2, 0.2, 1)
         Line(points=[
-            cx - size * 0.7, cy - size * 0.7,
-            cx + size * 0.7, cy + size * 0.7,
-        ], width=size * 0.18)
+            cx - size * 0.85, cy - size * 0.85,
+            cx + size * 0.85, cy + size * 0.85,
+        ], width=size * 0.16)
 
 
 # ============================================================
@@ -1512,8 +1509,9 @@ class MahjongApp(App):
             icon_type='music',
             background_color=(0.5, 0.4, 0.7, 0.7),  # фиолетовая полупрозрачная
             size_hint=(None, None),
-            size=(60, 60),
-            pos_hint={'x': 0.01, 'top': 0.98}
+            size=(70, 70),
+            pos_hint={'x': 0.005, 'top': 0.99}
+        )
         )
         self.btn_music.bind(on_release=self._toggle_music)
         outer.add_widget(self.btn_music)
