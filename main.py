@@ -415,9 +415,11 @@ class MahjongBoard(Widget):
         self.history = []
         self.shuffles_left = 10
         self.undos_used = 0
-        self.game_over = False
+        self.game_over = False  # это автоматически остановит салют
         self.elapsed_seconds = 0
         self.timer_running = True
+        # Очищаем оставшиеся искры с экрана
+        self.canvas.after.clear()
         self._create_tiles()
         self._redraw()
 
@@ -1133,11 +1135,7 @@ class MahjongBoard(Widget):
                 message = (f'Все плитки убраны!\n\n'
                            f'Время: {time_str}\n'
                            f'Рекорд: {self._format_time(old_record)}')
-            # Попап показываем ЧЕРЕЗ 3 СЕКУНДЫ - чтобы успели увидеть салют
-            Clock.schedule_once(
-                lambda dt: self._show_popup('ПОБЕДА!', message),
-                3.0
-            )
+            self._show_popup('ПОБЕДА!', message)
             return
         if not self._find_hint():
             self._show_popup('Тупик',
@@ -1150,14 +1148,20 @@ class MahjongBoard(Widget):
         return f'{m:02d}:{s:02d}'
 
     def _launch_fireworks(self):
-        """Запускает анимацию салюта при победе."""
-        # Создаём фейерверк: несколько точек разлетающихся в разные стороны
-        # Запускаем 5 залпов с разной задержкой
-        for i in range(5):
-            Clock.schedule_once(
-                lambda dt, idx=i: self._single_firework(idx),
-                i * 0.4
-            )
+        """Запускает непрерывный салют. Будет работать пока game_over = True."""
+        # Запланируем следующий залп через 0.6 секунд
+        Clock.schedule_once(self._fire_next, 0.0)
+
+    def _fire_next(self, dt):
+        """Один залп + планируем следующий, если игра ещё в режиме победы."""
+        # Если уже началась новая игра - салют останавливается
+        if not self.game_over:
+            return
+        # Делаем залп
+        self._single_firework(0)
+        # Планируем следующий через случайное время 0.4-0.9 сек
+        next_delay = 0.4 + random.random() * 0.5
+        Clock.schedule_once(self._fire_next, next_delay)
 
     def _single_firework(self, idx):
         """Один залп салюта."""
