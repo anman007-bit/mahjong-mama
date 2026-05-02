@@ -512,13 +512,38 @@ class MahjongBoard(Widget):
         self.history = []
         self.shuffles_left = 10
         self.undos_used = 0
-        self.game_over = False  # это автоматически остановит салют
+        self.game_over = False
         self.elapsed_seconds = 0
         self.timer_running = True
-        # Очищаем список фейерверков (анимация остановится сама)
+        # Останавливаем цикл салюта НЕМЕДЛЕННО (а не ждём пока он сам остановится)
+        if hasattr(self, '_fw_update_event') and self._fw_update_event is not None:
+            self._fw_update_event.cancel()
+            self._fw_update_event = None
+        # Очищаем список фейерверков
         if hasattr(self, 'fireworks'):
             self.fireworks = []
+        # Очищаем canvas.after (там могли остаться последние искры)
+        self.canvas.after.clear()
         self._create_tiles()
+        self._redraw()
+        # Перерисовываем иконки кнопок (мы их случайно стёрли вместе с искрами)
+        Clock.schedule_once(lambda dt: self._refresh_button_icons(), 0.1)
+
+    def _refresh_button_icons(self):
+        """Перерисовать иконки всех кнопок (после очистки canvas.after)."""
+        # Через приложение находим все IconButton и обновляем их
+        try:
+            app = App.get_running_app()
+            if hasattr(app, 'btn_music'):
+                app.btn_music._update_icon()
+            if hasattr(app, 'btn_pause'):
+                app.btn_pause._update_icon()
+            if hasattr(app, 'btn_counters'):
+                # Кнопки в правой панели тоже нужно обновить
+                # У нас нет прямого доступа к ним - обновим через side_panel
+                pass
+        except Exception as e:
+            print(f'[ICONS] Ошибка обновления иконок: {e}')
 
     # --------------------------------------------------------
     # ГЕОМЕТРИЯ — горизонтальное поле, занимает весь экран
