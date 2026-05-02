@@ -50,6 +50,7 @@ def save_record(seconds):
 from kivy.app import App
 from kivy.uix.widget import Widget
 from kivy.uix.boxlayout import BoxLayout
+from kivy.uix.floatlayout import FloatLayout
 from kivy.uix.button import Button
 from kivy.uix.label import Label
 from kivy.uix.popup import Popup
@@ -1258,6 +1259,8 @@ class IconButton(Button):
                 self._draw_music_note(cx, cy, size)
             elif self.icon_type == 'music_off':
                 self._draw_music_off(cx, cy, size)
+            elif self.icon_type == 'pause':
+                self._draw_pause_icon(cx, cy, size)
 
     def _draw_lightbulb(self, cx, cy, size):
         """Лампочка — кружок с цоколем снизу."""
@@ -1379,6 +1382,22 @@ class IconButton(Button):
             size=(stick_w, stick_h)
         )
 
+    def _draw_pause_icon(self, cx, cy, size):
+        """Иконка паузы - две вертикальные палочки."""
+        bar_w = size * 0.25
+        bar_h = size * 0.9
+        gap = size * 0.18
+        # Левая палочка
+        Rectangle(
+            pos=(cx - gap - bar_w, cy - bar_h / 2),
+            size=(bar_w, bar_h)
+        )
+        # Правая палочка
+        Rectangle(
+            pos=(cx + gap, cy - bar_h / 2),
+            size=(bar_w, bar_h)
+        )
+
     def _draw_music_off(self, cx, cy, size):
         """Нотка с красной диагональной чертой - музыка выключена."""
         # Сначала рисуем такую же ноту
@@ -1435,7 +1454,6 @@ class MahjongApp(App):
         Window.keep_screen_on = True
 
         # Внешний контейнер - FloatLayout для наложения кнопок поверх игры
-        from kivy.uix.floatlayout import FloatLayout
         outer = FloatLayout()
 
         # Главный контейнер: горизонтальный (поле слева, кнопки справа)
@@ -1517,11 +1535,30 @@ class MahjongApp(App):
         # Перерисовываем иконку после добавления (чтобы появилась сразу)
         Clock.schedule_once(lambda dt: self.btn_music._update_icon(), 0.1)
 
+        # Кнопка паузы - под кнопкой музыки, тёмно-синяя
+        self.is_paused = False  # текущее состояние паузы
+        self.btn_pause = IconButton(
+            icon_type='pause',
+            background_color=(0.23, 0.29, 0.42, 0.7),  # тёмно-синяя полупрозрачная
+            size_hint=(None, None),
+            size=(70, 70),
+            pos_hint={'x': 0.005, 'top': 0.83}
+        )
+        self.btn_pause.bind(on_release=self._toggle_pause)
+        outer.add_widget(self.btn_pause)
+        Clock.schedule_once(lambda dt: self.btn_pause._update_icon(), 0.1)
+
+        # Сохраняем ссылку на outer чтобы добавлять оверлей паузы
+        self.outer = outer
+
         Clock.schedule_interval(self._update_score, 0.5)
         return outer
 
     def _toggle_music(self, btn):
         """Включить/выключить фоновую музыку."""
+        # На паузе кнопка не работает
+        if self.is_paused:
+            return
         self.music_on = not self.music_on
         if self.music_on:
             # Включаем музыку
@@ -1535,6 +1572,68 @@ class MahjongApp(App):
             self.btn_music.icon_type = 'music_off'
         # Перерисовываем иконку на кнопке
         self.btn_music._update_icon()
+
+    def _toggle_pause(self, btn):
+        """Включить паузу - показать оверлей со кнопкой Продолжить."""
+        if self.is_paused:
+            return  # уже на паузе - ничего не делаем
+        self.is_paused = True
+        # Останавливаем таймер
+        self.board.timer_running = False
+        # Создаём оверлей паузы (затемнение + надпись + кнопка)
+        self.pause_overlay = FloatLayout()
+        # Затемняющий фон
+        with self.pause_overlay.canvas.before:
+            Color(0, 0, 0, 0.7)  # чёрный полупрозрачный
+            self.pause_bg = Rectangle(
+                pos=self.pause_overlay.pos,
+                size=self.pause_overlay.size
+            )
+        self.pause_overlay.bind(
+            size=self._update_pause_bg,
+            pos=self._update_pause_bg
+        )
+        # Надпись "ПАУЗА"
+        pause_label = Label(
+            text='ПАУЗА',
+            font_size=80,
+            bold=True,
+            color=(1, 1, 1, 1),
+            size_hint=(None, None),
+            size=(400, 100),
+            pos_hint={'center_x': 0.5, 'center_y': 0.65}
+        )
+        self.pause_overlay.add_widget(pause_label)
+        # Большая кнопка "ПРОДОЛЖИТЬ"
+        continue_btn = Button(
+            text='ПРОДОЛЖИТЬ',
+            font_size=42,
+            bold=True,
+            background_color=(0.3, 0.7, 0.4, 1),  # зелёная
+            color=(1, 1, 1, 1),
+            size_hint=(None, None),
+            size=(380, 100),
+            pos_hint={'center_x': 0.5, 'center_y': 0.4}
+        )
+        continue_btn.bind(on_release=self._resume_game)
+        self.pause_overlay.add_widget(continue_btn)
+        # Добавляем оверлей поверх всего
+        self.outer.add_widget(self.pause_overlay)
+
+    def _update_pause_bg(self, instance, value):
+        """Обновляет затемняющий фон при изменении размера."""
+        self.pause_bg.pos = instance.pos
+        self.pause_bg.size = instance.size
+
+    def _resume_game(self, btn):
+        """Снять паузу - убрать оверлей, продолжить игру."""
+        self.is_paused = False
+        # Возобновляем таймер
+        self.board.timer_running = True
+        # Убираем оверлей
+        if hasattr(self, 'pause_overlay') and self.pause_overlay:
+            self.outer.remove_widget(self.pause_overlay)
+            self.pause_overlay = None
 
     def _update_score(self, dt):
         m = self.board.elapsed_seconds // 60
