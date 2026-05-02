@@ -282,6 +282,103 @@ class MahjongTile:
 
 
 # ============================================================
+# КЛАСС САЛЮТА (один залп)
+# ============================================================
+
+class Firework:
+    """Один залп салюта - вспышка + летящие искры с гравитацией."""
+
+    def __init__(self, cx, cy, color):
+        self.cx = cx                # центр взрыва (X)
+        self.cy = cy                # центр взрыва (Y)
+        self.color = color          # цвет (r, g, b)
+        self.age = 0.0              # сколько секунд прошло
+        self.life = 2.5             # сколько живёт всего (секунд)
+        # Создаём искры - 14 штук во все стороны
+        self.sparks = []
+        num_sparks = 14
+        for i in range(num_sparks):
+            angle = i * 2 * math.pi / num_sparks
+            # Случайная скорость для каждой искры
+            speed = 180 + random.random() * 120  # пикселей в секунду
+            self.sparks.append({
+                'x': cx,
+                'y': cy,
+                'vx': math.cos(angle) * speed,   # скорость по X
+                'vy': math.sin(angle) * speed,   # скорость по Y
+                'trail': [],                      # хвост (последние позиции)
+            })
+
+    def update(self, dt):
+        """Обновить состояние всех искр на dt секунд."""
+        self.age += dt
+        gravity = 250  # пикселей/сек² - падение вниз
+        for s in self.sparks:
+            # Сохраняем текущую позицию в хвост
+            s['trail'].append((s['x'], s['y']))
+            if len(s['trail']) > 4:
+                s['trail'].pop(0)
+            # Двигаем искру
+            s['x'] += s['vx'] * dt
+            s['y'] += s['vy'] * dt
+            # Применяем гравитацию (уменьшаем вертикальную скорость)
+            s['vy'] -= gravity * dt
+            # Сопротивление воздуха - искры замедляются
+            s['vx'] *= 0.98
+            s['vy'] *= 0.98
+
+    def is_alive(self):
+        """Жив ли ещё этот залп?"""
+        return self.age < self.life
+
+    def draw(self, canvas):
+        """Нарисовать текущее состояние на canvas."""
+        # Прозрачность зависит от того сколько прожил (затухает к концу)
+        fade = max(0, 1.0 - self.age / self.life)
+        r, g, b = self.color
+        # Рисуем вспышку в начале (большой яркий круг)
+        if self.age < 0.3:
+            flash_alpha = (0.3 - self.age) / 0.3
+            flash_size = 30 + self.age * 200  # быстро растёт
+            with canvas:
+                Color(r, g, b, flash_alpha * 0.8)
+                Ellipse(
+                    pos=(self.cx - flash_size / 2,
+                         self.cy - flash_size / 2),
+                    size=(flash_size, flash_size)
+                )
+        # Рисуем искры с хвостами
+        with canvas:
+            for s in self.sparks:
+                # Хвост (полупрозрачные точки за искрой)
+                for i, (tx, ty) in enumerate(s['trail']):
+                    trail_alpha = (i + 1) / len(s['trail']) * fade * 0.5
+                    trail_size = 3 + i
+                    Color(r, g, b, trail_alpha)
+                    Ellipse(
+                        pos=(tx - trail_size / 2,
+                             ty - trail_size / 2),
+                        size=(trail_size, trail_size)
+                    )
+                # Сама искра (яркая точка)
+                spark_size = 7
+                Color(r, g, b, fade)
+                Ellipse(
+                    pos=(s['x'] - spark_size / 2,
+                         s['y'] - spark_size / 2),
+                    size=(spark_size, spark_size)
+                )
+                # Внутри искры белая сердцевина
+                inner_size = 3
+                Color(1, 1, 1, fade)
+                Ellipse(
+                    pos=(s['x'] - inner_size / 2,
+                         s['y'] - inner_size / 2),
+                    size=(inner_size, inner_size)
+                )
+
+
+# ============================================================
 # ИГРОВОЕ ПОЛЕ
 # ============================================================
 
@@ -418,10 +515,10 @@ class MahjongBoard(Widget):
         self.game_over = False  # это автоматически остановит салют
         self.elapsed_seconds = 0
         self.timer_running = True
-        # Очищаем оставшиеся искры с экрана
-        self.canvas.after.clear()
+        # Очищаем список фейерверков (анимация остановится сама)
+        if hasattr(self, 'fireworks'):
+            self.fireworks = []
         self._create_tiles()
-        self._redraw()
 
     # --------------------------------------------------------
     # ГЕОМЕТРИЯ — горизонтальное поле, занимает весь экран
@@ -1148,75 +1245,61 @@ class MahjongBoard(Widget):
         return f'{m:02d}:{s:02d}'
 
     def _launch_fireworks(self):
-        """Запускает непрерывный салют. Будет работать пока game_over = True."""
-        # Запланируем следующий залп через 0.6 секунд
-        Clock.schedule_once(self._fire_next, 0.0)
+        """Запускает непрерывный салют пока game_over = True."""
+        # Список активных фейерверков
+        if not hasattr(self, 'fireworks'):
+            self.fireworks = []
+        # Запускаем первый залп сразу
+        self._spawn_firework(None)
+        # Запускаем цикл обновления (каждый кадр перерисовываем)
+        if not hasattr(self, '_fw_update_event') or self._fw_update_event is None:
+            self._fw_update_event = Clock.schedule_interval(
+                self._update_fireworks, 1.0 / 30.0  # 30 FPS
+            )
 
-    def _fire_next(self, dt):
-        """Один залп + планируем следующий, если игра ещё в режиме победы."""
-        # Если уже началась новая игра - салют останавливается
+    def _spawn_firework(self, dt):
+        """Создать новый залп. Планирует следующий пока game_over = True."""
         if not self.game_over:
-            return
-        # Делаем залп
-        self._single_firework(0)
-        # Планируем следующий через случайное время 0.4-0.9 сек
-        next_delay = 0.4 + random.random() * 0.5
-        Clock.schedule_once(self._fire_next, next_delay)
-
-    def _single_firework(self, idx):
-        """Один залп салюта."""
-        # Случайная позиция в верхней части экрана
-        cx = self.width * (0.2 + 0.6 * random.random())
-        cy = self.height * (0.5 + 0.4 * random.random())
-
-        # Цвет залпа
+            return  # игра уже не в режиме победы - больше не запускаем
+        # Случайная позиция в верхней половине экрана
+        cx = self.width * (0.15 + 0.7 * random.random())
+        cy = self.height * (0.45 + 0.45 * random.random())
+        # Случайный цвет
         colors = [
-            (1.0, 0.3, 0.3, 1),   # красный
-            (0.3, 1.0, 0.3, 1),   # зелёный
-            (0.3, 0.5, 1.0, 1),   # синий
-            (1.0, 0.9, 0.3, 1),   # жёлтый
-            (1.0, 0.5, 0.9, 1),   # розовый
+            (1.0, 0.3, 0.3),   # красный
+            (0.3, 1.0, 0.4),   # зелёный
+            (0.4, 0.6, 1.0),   # синий
+            (1.0, 0.9, 0.3),   # жёлтый
+            (1.0, 0.5, 0.9),   # розовый
+            (0.6, 1.0, 1.0),   # бирюзовый
+            (1.0, 0.7, 0.3),   # оранжевый
         ]
-        col = random.choice(colors)
+        color = random.choice(colors)
+        # Создаём новый залп
+        fw = Firework(cx, cy, color)
+        self.fireworks.append(fw)
+        # Планируем следующий через случайное время 0.4 - 0.9 сек
+        next_delay = 0.4 + random.random() * 0.5
+        Clock.schedule_once(self._spawn_firework, next_delay)
 
-        # Рисуем 12 искр вокруг центра
-        num_sparks = 12
-        for i in range(num_sparks):
-            angle = i * 2 * math.pi / num_sparks
-            # Анимируем "разлёт" искр через несколько кадров
-            self._draw_spark(cx, cy, angle, col, 0)
-
-    def _draw_spark(self, cx, cy, angle, col, frame):
-        """Рисует искру и планирует следующий кадр анимации."""
-        if frame >= 15:
-            return  # анимация завершена
-        # Радиус разлёта растёт с каждым кадром
-        r = frame * 8
-        spark_x = cx + r * math.cos(angle)
-        spark_y = cy + r * math.sin(angle)
-        # Размер искры уменьшается
-        size = max(2, 8 - frame * 0.4)
-        # Рисуем искру на canvas (after — чтобы поверх плиток)
-        with self.canvas.after:
-            r_col, g_col, b_col, a = col
-            # Затухающий цвет
-            fade = 1.0 - frame / 15.0
-            Color(r_col, g_col, b_col, fade)
-            Ellipse(
-                pos=(spark_x - size / 2, spark_y - size / 2),
-                size=(size, size)
-            )
-        # Планируем следующий кадр
-        Clock.schedule_once(
-            lambda dt: self._draw_spark(cx, cy, angle, col, frame + 1),
-            0.05
-        )
-        # Очищаем canvas.after после окончания всей анимации
-        if frame == 0:
-            Clock.schedule_once(
-                lambda dt: self.canvas.after.clear(),
-                3.0
-            )
+    def _update_fireworks(self, dt):
+        """Каждый кадр: обновляем и перерисовываем все искры."""
+        if not hasattr(self, 'fireworks'):
+            self.fireworks = []
+        # Обновляем все залпы
+        for fw in self.fireworks:
+            fw.update(dt)
+        # Удаляем мёртвые залпы
+        self.fireworks = [fw for fw in self.fireworks if fw.is_alive()]
+        # Перерисовываем canvas.after (чистим и рисуем заново)
+        self.canvas.after.clear()
+        for fw in self.fireworks:
+            fw.draw(self.canvas.after)
+        # Если игра не закончена и нет активных залпов - останавливаем цикл
+        if not self.game_over and not self.fireworks:
+            if hasattr(self, '_fw_update_event') and self._fw_update_event is not None:
+                self._fw_update_event.cancel()
+                self._fw_update_event = None
 
     def _show_popup(self, title, message):
         popup = Popup(
