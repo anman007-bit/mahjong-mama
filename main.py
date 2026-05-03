@@ -1458,9 +1458,9 @@ class ShapeMenuItem(BoxLayout):
         self.shape = shape
         self.on_double_tap = on_double_tap
         self.size_hint_y = None
-        self.height = 200
-        self.padding = 15
-        self.spacing = 20
+        self.height = 285  # выше для крупного превью
+        self.padding = 25
+        self.spacing = 35
         self._last_tap_time = 0
         self.selected = False
 
@@ -1478,7 +1478,7 @@ class ShapeMenuItem(BoxLayout):
         text_box = BoxLayout(orientation='vertical', size_hint_x=0.5)
         self.name_label = Label(
             text=shape.name,
-            font_size=42,
+            font_size=64,
             bold=True,
             color=(1, 1, 1, 1),
             halign='left',
@@ -1499,7 +1499,7 @@ class ShapeMenuItem(BoxLayout):
             rec_text = 'Рекорд: --:--'
         self.record_label = Label(
             text=rec_text,
-            font_size=28,
+            font_size=44,
             color=(0.9, 0.9, 0.7, 1),
             halign='left',
             valign='middle'
@@ -1562,11 +1562,11 @@ class MenuScreen(Screen):
         # Заголовок
         title = Label(
             text='Выбери фигуру',
-            font_size=48,
+            font_size=64,
             bold=True,
             color=(1, 1, 1, 1),
             size_hint_y=None,
-            height=80,
+            height=110,
             halign='center'
         )
         title.bind(size=lambda l, s: setattr(l, 'text_size', s))
@@ -1598,10 +1598,10 @@ class MenuScreen(Screen):
         # Подсказка внизу
         hint = Label(
             text='Двойной тап - старт',
-            font_size=24,
+            font_size=36,
             color=(0.8, 0.8, 0.8, 1),
             size_hint_y=None,
-            height=40
+            height=60
         )
         layout.add_widget(hint)
 
@@ -1785,32 +1785,34 @@ class IconButton(Button):
         )
 
     def _draw_home_icon(self, cx, cy, size):
-        """Иконка дома - крыша + квадрат."""
-        # Стены дома (квадрат снизу)
+        """Иконка дома - крыша + квадрат + дверка."""
+        # Стены дома (квадрат снизу) - белые
         wall_w = size * 1.0
-        wall_h = size * 0.6
+        wall_h = size * 0.55
         wall_x = cx - wall_w / 2
-        wall_y = cy - size * 0.5
+        wall_y = cy - size * 0.45
         Rectangle(
             pos=(wall_x, wall_y),
             size=(wall_w, wall_h)
         )
-        # Крыша (треугольник через линию)
+        # Крыша - треугольник из 3 линий
+        roof_top_y = wall_y + wall_h + size * 0.4
         Line(points=[
-            wall_x - size * 0.1, wall_y + wall_h,
-            cx, wall_y + wall_h + size * 0.5,
-            wall_x + wall_w + size * 0.1, wall_y + wall_h,
-        ], width=size * 0.15, close=True)
-        # Дверь (вырез снизу)
-        door_w = size * 0.3
-        door_h = size * 0.35
-        # Цвет фона кнопки чтобы "вырезать" дверь
-        Color(0.4, 0.5, 0.7, 1)  # цвет кнопки home
+            wall_x - size * 0.15, wall_y + wall_h,
+            cx, roof_top_y,
+            wall_x + wall_w + size * 0.15, wall_y + wall_h,
+            wall_x - size * 0.15, wall_y + wall_h,
+        ], width=size * 0.12)
+        # Дверь — рисуем линиями (контур двери) поверх стен
+        door_w = size * 0.25
+        door_h = size * 0.4
+        # Используем цвет кнопки чтобы "вырезать" контур двери
+        Color(0.4, 0.5, 0.7, 1)
         Rectangle(
             pos=(cx - door_w / 2, wall_y),
             size=(door_w, door_h)
         )
-        # Возвращаем белый цвет
+        # ВАЖНО: возвращаем белый цвет для следующих рисований
         Color(1, 1, 1, 1)
 
     def _draw_pause_icon(self, cx, cy, size):
