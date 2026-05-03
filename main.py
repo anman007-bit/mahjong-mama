@@ -24,25 +24,42 @@ def get_records_file():
     return os.path.join(path, 'mahjong_records.json')
 
 
-def load_record():
-    """Загружает лучшее время из файла. Возвращает None если рекорда ещё нет."""
+def load_record(shape_key='pyramid'):
+    """Загружает лучшее время для фигуры. Возвращает None если рекорда ещё нет."""
     try:
         path = get_records_file()
         if os.path.exists(path):
             with open(path, 'r') as f:
                 data = json.load(f)
-                return data.get('best_time')
+                # Совместимость со старым форматом - переносим best_time в pyramid
+                if 'best_time' in data and shape_key == 'pyramid':
+                    return data['best_time']
+                # Новый формат - словарь по ключам фигур
+                return data.get(shape_key)
     except Exception:
         pass
     return None
 
 
-def save_record(seconds):
-    """Сохраняет лучшее время в файл."""
+def save_record(seconds, shape_key='pyramid'):
+    """Сохраняет лучшее время для фигуры."""
     try:
         path = get_records_file()
+        # Загружаем существующие рекорды чтобы не затереть другие фигуры
+        data = {}
+        if os.path.exists(path):
+            try:
+                with open(path, 'r') as f:
+                    data = json.load(f)
+            except Exception:
+                data = {}
+        # Если был старый формат - мигрируем
+        if 'best_time' in data:
+            data['pyramid'] = data.pop('best_time')
+        # Записываем новое значение
+        data[shape_key] = seconds
         with open(path, 'w') as f:
-            json.dump({'best_time': seconds}, f)
+            json.dump(data, f)
         return True
     except Exception:
         return False
@@ -411,8 +428,12 @@ class Firework:
 
 class MahjongBoard(Widget):
 
-    def __init__(self, **kwargs):
+    def __init__(self, shape=None, **kwargs):
         super().__init__(**kwargs)
+        # Сохраняем фигуру (по умолчанию - пирамида)
+        if shape is None:
+            shape = PYRAMID_SHAPE
+        self.shape = shape
         # Звуки: пробуем только фоновую музыку
         self.sounds = {}
         self.sound_enabled = True
@@ -437,7 +458,7 @@ class MahjongBoard(Widget):
         self.tiles = []
         self.first_selected = None
         self.score = 0
-        self.total_pairs = 47  # 94 плитки / 2
+        self.total_pairs = self.shape.pair_count  # количество пар из фигуры
         self.history = []
         self.shuffles_left = 10  # лимит перемешиваний
         self.undos_used = 0
@@ -1271,11 +1292,11 @@ class MahjongBoard(Widget):
             self._launch_fireworks()
             time_str = self._format_time(self.elapsed_seconds)
             # Проверяем рекорд
-            old_record = load_record()
+            old_record = load_record(self.shape.key)
             current = self.elapsed_seconds
             is_new_record = (old_record is None) or (current < old_record)
             if is_new_record:
-                save_record(current)
+                save_record(current, self.shape.key)
                 message = (f'НОВЫЙ РЕКОРД!\n\n'
                            f'Время: {time_str}\n')
                 if old_record is not None:
