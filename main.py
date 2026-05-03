@@ -153,10 +153,28 @@ class BackgroundMusic:
             print(f'[MUSIC] Ошибка set_volume: {e}')
 
 # ============================================================
-# РАСКЛАДКА "ЧЕРЕПАХА" (144 плитки)
+# КЛАСС ФИГУРЫ - описание раскладки
 # ============================================================
 
-def _build_turtle_layout():
+class Shape:
+    """Описание одной фигуры маджонга (раскладка плиток)."""
+
+    def __init__(self, key, name, layout, board_w, board_h):
+        self.key = key                # ключ для рекордов ('pyramid', 'turtle', ...)
+        self.name = name              # отображаемое имя ('ПИРАМИДА', 'ЧЕРЕПАХА')
+        self.layout = layout          # список координат (layer, row, col)
+        self.board_w = board_w        # ширина поля в плитках (для масштабирования)
+        self.board_h = board_h        # высота поля в плитках
+        # Количество плиток и пар
+        self.tile_count = len(layout)
+        self.pair_count = self.tile_count // 2
+
+
+# ============================================================
+# РАСКЛАДКА "ПИРАМИДА"
+# ============================================================
+
+def _build_pyramid_layout():
     """Раскладка ПИРАМИДА: 94 плитки = 47 пар.
     Слой 0 = 60 (10x6), Слой 1 = 24 (8x3), Слой 2 = 8 (4x2), Слой 3 = 2.
     Все слои центрированы друг над другом."""
@@ -187,7 +205,16 @@ def _build_turtle_layout():
     return layout
 
 
-TURTLE_LAYOUT = _build_turtle_layout()
+PYRAMID_SHAPE = Shape(
+    key='pyramid',
+    name='ПИРАМИДА',
+    layout=_build_pyramid_layout(),
+    board_w=12,
+    board_h=6
+)
+
+# Список всех доступных фигур (пока только пирамида)
+SHAPES = [PYRAMID_SHAPE]
 
 
 # ============================================================
@@ -499,7 +526,7 @@ class MahjongBoard(Widget):
         pool = build_tile_pool()
         random.shuffle(pool)
         self.tiles = []
-        for i, position in enumerate(TURTLE_LAYOUT):
+        for i, position in enumerate(self.shape.layout):
             if i >= len(pool):
                 break
             layer, row, col = position
