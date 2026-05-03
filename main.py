@@ -1447,6 +1447,181 @@ class MahjongBoard(Widget):
 
 
 # ============================================================
+# ЭКРАН МЕНЮ ВЫБОРА ФИГУРЫ
+# ============================================================
+
+class ShapeMenuItem(BoxLayout):
+    """Один элемент меню: превью + название + рекорд + обработка тапов."""
+
+    def __init__(self, shape, on_double_tap, **kwargs):
+        super().__init__(orientation='horizontal', **kwargs)
+        self.shape = shape
+        self.on_double_tap = on_double_tap
+        self.size_hint_y = None
+        self.height = 200
+        self.padding = 15
+        self.spacing = 20
+        self._last_tap_time = 0
+        self.selected = False
+
+        # Фон элемента (для подсветки выбранного)
+        with self.canvas.before:
+            self._bg_color = Color(0.15, 0.40, 0.25, 0.5)
+            self._bg_rect = Rectangle(pos=self.pos, size=self.size)
+        self.bind(size=self._update_bg, pos=self._update_bg)
+
+        # Превью фигуры (слева)
+        self.preview = ShapePreview(shape, size_hint_x=0.5)
+        self.add_widget(self.preview)
+
+        # Текстовая часть (справа)
+        text_box = BoxLayout(orientation='vertical', size_hint_x=0.5)
+        self.name_label = Label(
+            text=shape.name,
+            font_size=42,
+            bold=True,
+            color=(1, 1, 1, 1),
+            halign='left',
+            valign='middle'
+        )
+        self.name_label.bind(
+            size=lambda l, s: setattr(l, 'text_size', s)
+        )
+        text_box.add_widget(self.name_label)
+
+        # Рекорд
+        record = load_record(shape.key)
+        if record is not None:
+            m = record // 60
+            s = record % 60
+            rec_text = f'Рекорд: {m:02d}:{s:02d}'
+        else:
+            rec_text = 'Рекорд: --:--'
+        self.record_label = Label(
+            text=rec_text,
+            font_size=28,
+            color=(0.9, 0.9, 0.7, 1),
+            halign='left',
+            valign='middle'
+        )
+        self.record_label.bind(
+            size=lambda l, s: setattr(l, 'text_size', s)
+        )
+        text_box.add_widget(self.record_label)
+
+        self.add_widget(text_box)
+
+    def _update_bg(self, *args):
+        self._bg_rect.pos = self.pos
+        self._bg_rect.size = self.size
+
+    def set_selected(self, selected):
+        """Подсветка выбранного элемента."""
+        self.selected = selected
+        if selected:
+            self._bg_color.rgba = (0.85, 0.55, 0.2, 0.6)  # янтарный
+        else:
+            self._bg_color.rgba = (0.15, 0.40, 0.25, 0.5)  # зелёный
+
+    def on_touch_down(self, touch):
+        if not self.collide_point(*touch.pos):
+            return False
+        # Проверка на двойной тап (за 0.4 секунды)
+        import time
+        now = time.time()
+        if now - self._last_tap_time < 0.4:
+            # Двойной тап - запускаем игру
+            self.on_double_tap(self.shape)
+            self._last_tap_time = 0
+        else:
+            # Одиночный тап - выделяем
+            self._last_tap_time = now
+            # Сообщаем родителю что мы выбраны
+            if hasattr(self.parent.parent, 'select_item'):
+                self.parent.parent.select_item(self)
+        return True
+
+
+class MenuScreen(Screen):
+    """Экран выбора фигуры."""
+
+    def __init__(self, on_shape_selected, **kwargs):
+        super().__init__(**kwargs)
+        self.on_shape_selected = on_shape_selected
+        self.items = []
+
+        # Главный layout
+        layout = BoxLayout(orientation='vertical', padding=20, spacing=10)
+
+        # Зелёный фон
+        with layout.canvas.before:
+            Color(0.13, 0.38, 0.23, 1)
+            self._bg = Rectangle(pos=layout.pos, size=layout.size)
+        layout.bind(size=self._update_layout_bg, pos=self._update_layout_bg)
+
+        # Заголовок
+        title = Label(
+            text='Выбери фигуру',
+            font_size=48,
+            bold=True,
+            color=(1, 1, 1, 1),
+            size_hint_y=None,
+            height=80,
+            halign='center'
+        )
+        title.bind(size=lambda l, s: setattr(l, 'text_size', s))
+        layout.add_widget(title)
+
+        # Скроллируемый список фигур
+        scroll = ScrollView(do_scroll_x=False, do_scroll_y=True)
+        items_box = BoxLayout(
+            orientation='vertical',
+            size_hint_y=None,
+            spacing=15,
+            padding=10
+        )
+        items_box.bind(minimum_height=items_box.setter('height'))
+
+        # Добавляем элементы для каждой фигуры
+        for shape in SHAPES:
+            item = ShapeMenuItem(shape, self._on_item_double_tap)
+            items_box.add_widget(item)
+            self.items.append(item)
+
+        # Выделяем первый элемент
+        if self.items:
+            self.items[0].set_selected(True)
+
+        scroll.add_widget(items_box)
+        layout.add_widget(scroll)
+
+        # Подсказка внизу
+        hint = Label(
+            text='Двойной тап - старт',
+            font_size=24,
+            color=(0.8, 0.8, 0.8, 1),
+            size_hint_y=None,
+            height=40
+        )
+        layout.add_widget(hint)
+
+        self.add_widget(layout)
+
+    def _update_layout_bg(self, instance, value):
+        self._bg.pos = instance.pos
+        self._bg.size = instance.size
+
+    def select_item(self, item):
+        """Выделить элемент (одиночный тап)."""
+        for i in self.items:
+            i.set_selected(i is item)
+
+    def _on_item_double_tap(self, shape):
+        """Двойной тап на элементе - запуск игры."""
+        self.on_shape_selected(shape)
+
+
+# ============================================================
 # КНОПКА С ИКОНКОЙ (рисуется графикой, без зависимости от шрифтов)
 # ============================================================
 
