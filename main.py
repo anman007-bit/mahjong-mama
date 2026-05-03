@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 """
-МАДЖОНГ-СОЛИТЁР (Черепаха) — версия 7.3 ФИНАЛЬНАЯ
+МАДЖОНГ (Черепаха) — версия 7.7 
 - Горизонтальная ориентация
 - Все плитки рисуются графикой (точки, палочки, цифры)
 - Без зависимости от китайских шрифтов
@@ -68,6 +68,8 @@ from kivy.app import App
 from kivy.uix.widget import Widget
 from kivy.uix.boxlayout import BoxLayout
 from kivy.uix.floatlayout import FloatLayout
+from kivy.uix.screenmanager import ScreenManager, Screen, SlideTransition
+from kivy.uix.scrollview import ScrollView
 from kivy.uix.button import Button
 from kivy.uix.label import Label
 from kivy.uix.popup import Popup
@@ -323,6 +325,65 @@ class MahjongTile:
         self.removed = False
         self.selected = False
         self.hint = False
+
+
+# ============================================================
+# ПРЕВЬЮ ФИГУРЫ (миниатюра для меню)
+# ============================================================
+
+class ShapePreview(Widget):
+    """Рисует силуэт фигуры маленькими квадратиками."""
+
+    def __init__(self, shape, **kwargs):
+        super().__init__(**kwargs)
+        self.shape = shape
+        self.bind(size=self._redraw, pos=self._redraw)
+        Clock.schedule_once(lambda dt: self._redraw(), 0)
+
+    def _redraw(self, *args):
+        self.canvas.clear()
+        if self.width <= 0 or self.height <= 0:
+            return
+        # Находим размеры раскладки (макс col, max row, макс layer)
+        max_col = max(c for _, _, c in self.shape.layout)
+        max_row = max(r for _, r, _ in self.shape.layout)
+        # Размер одной плитки превью
+        margin = 10
+        avail_w = self.width - 2 * margin
+        avail_h = self.height - 2 * margin
+        # Учитываем смещение слоёв (макс 4 слоя * 0.15)
+        tile_w = min(
+            avail_w / (max_col + 1.6),
+            avail_h / (max_row + 1.6) / 1.25
+        )
+        tile_h = tile_w * 1.25
+        # Центрируем превью
+        board_w = tile_w * (max_col + 1.6)
+        board_h = tile_h * (max_row + 1.6)
+        offset_x = self.x + (self.width - board_w) / 2
+        offset_y = self.y + (self.height - board_h) / 2
+        # Рисуем плитки от нижних слоёв к верхним
+        sorted_tiles = sorted(self.shape.layout,
+                              key=lambda t: (t[0], -t[1], t[2]))
+        with self.canvas:
+            for layer, row, col in sorted_tiles:
+                lox = tile_w * 0.15 * layer
+                loy = tile_h * 0.15 * layer
+                x = offset_x + col * tile_w + lox
+                y = offset_y + (max_row - row) * tile_h + loy
+                # Боковина (тёмная)
+                Color(0.20, 0.13, 0.08, 1)
+                Rectangle(
+                    pos=(x, y),
+                    size=(tile_w, tile_h)
+                )
+                # Лицевая часть (кремовая)
+                Color(1.00, 0.98, 0.92, 1)
+                side = tile_w * 0.07
+                Rectangle(
+                    pos=(x + side, y + side),
+                    size=(tile_w - side, tile_h - side)
+                )
 
 
 # ============================================================
