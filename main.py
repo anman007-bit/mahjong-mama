@@ -2004,11 +2004,12 @@ class MahjongApp(App):
             background_color=(0.4, 0.5, 0.7, 0.7),  # сине-серая
             size_hint=(None, None),
             size=(70, 70),
-            pos_hint={'x': 0.005, 'top': 0.66}
+            pos_hint={'x': 0.005, 'top': 0.67}
         )
         self.btn_home.bind(on_release=self._go_to_menu)
         outer.add_widget(self.btn_home)
-        Clock.schedule_once(lambda dt: self.btn_home._update_icon(), 0.1)
+        # Задержка побольше чем у других кнопок - даём FloatLayout время расставить
+        Clock.schedule_once(lambda dt: self.btn_home._update_icon(), 0.5)
 
         # Добавляем outer в экран игры
         game_screen.add_widget(outer)
@@ -2025,10 +2026,21 @@ class MahjongApp(App):
             self.board.shape = shape
             self.board.total_pairs = shape.pair_count
         self.board.restart()
-        # Останавливаем игру до того как тикнет таймер (restart запускает его)
         # Переключаемся на экран игры
         self.sm.transition.direction = 'left'
         self.sm.current = 'game'
+        # ВАЖНО: после перехода на экран игры обновляем иконки кнопок
+        # (без этого иконка кнопки "Домой" не отрисуется правильно)
+        Clock.schedule_once(lambda dt: self._refresh_overlay_icons(), 0.3)
+
+    def _refresh_overlay_icons(self):
+        """Перерисовать иконки кнопок поверх игры (музыка/пауза/домой)."""
+        if hasattr(self, 'btn_music'):
+            self.btn_music._update_icon()
+        if hasattr(self, 'btn_pause'):
+            self.btn_pause._update_icon()
+        if hasattr(self, 'btn_home'):
+            self.btn_home._update_icon()
 
     def _go_to_menu(self, btn):
         """Возврат в меню - вызывается кнопкой 'Домой'."""
