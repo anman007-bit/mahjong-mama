@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 """
-МАДЖОНГ (Черепаха) — версия 7.7 
+МАДЖОНГ (Черепаха) — версия 8.3 
 - Горизонтальная ориентация
 - Все плитки рисуются графикой (точки, палочки, цифры)
 - Без зависимости от китайских шрифтов
@@ -1661,6 +1661,8 @@ class IconButton(Button):
                 self._draw_music_off(cx, cy, size)
             elif self.icon_type == 'pause':
                 self._draw_pause_icon(cx, cy, size)
+            elif self.icon_type == 'home':
+                self._draw_home_icon(cx, cy, size)
 
     def _draw_lightbulb(self, cx, cy, size):
         """Лампочка — кружок с цоколем снизу."""
@@ -1782,6 +1784,35 @@ class IconButton(Button):
             size=(stick_w, stick_h)
         )
 
+    def _draw_home_icon(self, cx, cy, size):
+        """Иконка дома - крыша + квадрат."""
+        # Стены дома (квадрат снизу)
+        wall_w = size * 1.0
+        wall_h = size * 0.6
+        wall_x = cx - wall_w / 2
+        wall_y = cy - size * 0.5
+        Rectangle(
+            pos=(wall_x, wall_y),
+            size=(wall_w, wall_h)
+        )
+        # Крыша (треугольник через линию)
+        Line(points=[
+            wall_x - size * 0.1, wall_y + wall_h,
+            cx, wall_y + wall_h + size * 0.5,
+            wall_x + wall_w + size * 0.1, wall_y + wall_h,
+        ], width=size * 0.15, close=True)
+        # Дверь (вырез снизу)
+        door_w = size * 0.3
+        door_h = size * 0.35
+        # Цвет фона кнопки чтобы "вырезать" дверь
+        Color(0.4, 0.5, 0.7, 1)  # цвет кнопки home
+        Rectangle(
+            pos=(cx - door_w / 2, wall_y),
+            size=(door_w, door_h)
+        )
+        # Возвращаем белый цвет
+        Color(1, 1, 1, 1)
+
     def _draw_pause_icon(self, cx, cy, size):
         """Иконка паузы - две вертикальные палочки."""
         bar_w = size * 0.25
@@ -1853,6 +1884,19 @@ class MahjongApp(App):
         # Это удобно для маджонга - можно долго думать над ходом
         Window.keep_screen_on = True
 
+        # ScreenManager управляет переключением между меню и игрой
+        self.sm = ScreenManager(transition=SlideTransition(direction='left'))
+
+        # ===== ЭКРАН МЕНЮ =====
+        self.menu_screen = MenuScreen(
+            on_shape_selected=self._start_game_with_shape,
+            name='menu'
+        )
+        self.sm.add_widget(self.menu_screen)
+
+        # ===== ЭКРАН ИГРЫ =====
+        game_screen = Screen(name='game')
+
         # Внешний контейнер - FloatLayout для наложения кнопок поверх игры
         outer = FloatLayout()
 
@@ -1860,7 +1904,8 @@ class MahjongApp(App):
         root = BoxLayout(orientation='horizontal')
 
         # ===== ИГРОВОЕ ПОЛЕ (занимает большую часть слева) =====
-        self.board = MahjongBoard()
+        # Создаём с пирамидой по умолчанию (потом переключим если нужна другая)
+        self.board = MahjongBoard(shape=PYRAMID_SHAPE)
         root.add_widget(self.board)
 
         # ===== ПРАВАЯ ПАНЕЛЬ С КНОПКАМИ И СЧЁТОМ =====
@@ -1951,8 +1996,62 @@ class MahjongApp(App):
         # Сохраняем ссылку на outer чтобы добавлять оверлей паузы
         self.outer = outer
 
+        # Кнопка "Домой" - возврат в меню (под кнопкой паузы)
+        self.btn_home = IconButton(
+            icon_type='home',
+            background_color=(0.4, 0.5, 0.7, 0.7),  # сине-серая
+            size_hint=(None, None),
+            size=(70, 70),
+            pos_hint={'x': 0.005, 'top': 0.66}
+        )
+        self.btn_home.bind(on_release=self._go_to_menu)
+        outer.add_widget(self.btn_home)
+        Clock.schedule_once(lambda dt: self.btn_home._update_icon(), 0.1)
+
+        # Добавляем outer в экран игры
+        game_screen.add_widget(outer)
+        self.sm.add_widget(game_screen)
+
         Clock.schedule_interval(self._update_score, 0.5)
-        return outer
+        return self.sm
+
+    def _start_game_with_shape(self, shape):
+        """Запуск игры с выбранной фигурой - вызывается из меню."""
+        # Если фигура та же что в Board - просто рестарт
+        # Если другая - переинициализируем Board
+        if self.board.shape.key != shape.key:
+            self.board.shape = shape
+            self.board.total_pairs = shape.pair_count
+        self.board.restart()
+        # Останавливаем игру до того как тикнет таймер (restart запускает его)
+        # Переключаемся на экран игры
+        self.sm.transition.direction = 'left'
+        self.sm.current = 'game'
+
+    def _go_to_menu(self, btn):
+        """Возврат в меню - вызывается кнопкой 'Домой'."""
+        # Останавливаем салют если он есть
+        if hasattr(self.board, '_fw_update_event'):
+            if self.board._fw_update_event is not None:
+                self.board._fw_update_event.cancel()
+                self.board._fw_update_event = None
+        if hasattr(self.board, 'fireworks'):
+            self.board.fireworks = []
+        self.board.canvas.after.clear()
+        # Останавливаем таймер
+        self.board.timer_running = False
+        # Обновляем рекорды в меню (вдруг побит)
+        for item in self.menu_screen.items:
+            record = load_record(item.shape.key)
+            if record is not None:
+                m = record // 60
+                s = record % 60
+                item.record_label.text = f'Рекорд: {m:02d}:{s:02d}'
+            else:
+                item.record_label.text = 'Рекорд: --:--'
+        # Переключаемся на меню
+        self.sm.transition.direction = 'right'
+        self.sm.current = 'menu'
 
     def _toggle_music(self, btn):
         """Включить/выключить фоновую музыку."""
