@@ -206,20 +206,20 @@ def _build_pyramid_layout():
             layout.append((0, row, col))
 
     # Слой 1 — 8 столбцов × 3 ряда = 24 плитки
-    # Центрирован: столбцы 2-9, ряды 1-3 (визуально в центре основы)
-    for row in range(1, 4):
+    # Центрирован по вертикали: ряды 2-4 (центр основы 0-5)
+    for row in range(2, 5):
         for col in range(2, 10):
             layout.append((1, row, col))
 
     # Слой 2 — 4 столбца × 2 ряда = 8 плиток
-    # Ещё уже: столбцы 4-7, ряды 2-3
+    # Центрирован: ряды 2-3 (середина)
     for row in range(2, 4):
         for col in range(4, 8):
             layout.append((2, row, col))
 
-    # Слой 3 — 2 плитки сверху
-    layout.append((3, 2, 5))
-    layout.append((3, 2, 6))
+    # Слой 3 — 2 плитки на самой вершине (центр ряд 2-3, столбцы 5-6)
+    layout.append((3, 3, 5))
+    layout.append((3, 3, 6))
 
     return layout
 
