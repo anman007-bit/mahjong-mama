@@ -257,36 +257,61 @@ for f in ['plum', 'orchid', 'chrysanthemum', 'bamboo_flower']:
     TILE_DEFINITIONS.append({'suit': 'flower', 'value': f})
 
 
-def build_tile_pool():
-    """Создаём 94 плитки для пирамиды, ВСЕГДА парное количество каждой плитки.
-    Берём по 2 копии каждой плитки (точки/бамбук/символы — 9 типов × 2 = 18),
-    плюс ветры и драконы по 2 копии."""
+def build_tile_pool(target_count=94):
+    """Создаём пул плиток нужного размера (по умолчанию 94 для пирамиды).
+    target_count - сколько плиток нужно (всегда парное число!).
+    
+    Логика:
+    - Если target_count == 144 - это полный набор маджонга:
+      4 копии каждого вида + 1 каждой сезон/цветок (специальные парные)
+    - Иначе берём подмножество для меньших фигур"""
+    
+    if target_count == 144:
+        # ПОЛНЫЙ НАБОР МАДЖОНГА (для черепахи)
+        pool = []
+        # Точки/бамбук/символы 1-9: по 4 копии = 108
+        for td in TILE_DEFINITIONS:
+            if td['suit'] in ('dots', 'bamboo', 'characters'):
+                for _ in range(4):
+                    pool.append(dict(td))
+        # Ветры (4 типа) по 4 копии = 16
+        for td in TILE_DEFINITIONS:
+            if td['suit'] == 'wind':
+                for _ in range(4):
+                    pool.append(dict(td))
+        # Драконы (3 типа) по 4 копии = 12
+        for td in TILE_DEFINITIONS:
+            if td['suit'] == 'dragon':
+                for _ in range(4):
+                    pool.append(dict(td))
+        # Сезоны (4) - по 1 копии (особые парные правила) = 4
+        for td in TILE_DEFINITIONS:
+            if td['suit'] == 'season':
+                pool.append(dict(td))
+        # Цветы (4) - по 1 копии = 4
+        for td in TILE_DEFINITIONS:
+            if td['suit'] == 'flower':
+                pool.append(dict(td))
+        # Итого: 108 + 16 + 12 + 4 + 4 = 144 ✓
+        return pool
+    
+    # ДЛЯ ФИГУР МЕНЬШЕ 144 (пирамида 94, ромб 72 и т.д.)
     pool = []
-    # Точки 1-9: по 2 копии = 18
-    # Бамбук 1-9: по 2 копии = 18
-    # Символы 1-9: по 2 копии = 18
-    # Итого 54
+    # Точки/бамбук/символы 1-9: по 2 копии = 54
     for td in TILE_DEFINITIONS:
         if td['suit'] in ('dots', 'bamboo', 'characters'):
             for _ in range(2):
                 pool.append(dict(td))
-
-    # Ветры (4 типа) и драконы (3 типа): по 4 копии каждого = 16+12 = 28
-    # Итого 54 + 28 = 82
+    # Ветры (4) и драконы (3) по 4 копии = 28
     for td in TILE_DEFINITIONS:
         if td['suit'] in ('wind', 'dragon'):
             for _ in range(4):
                 pool.append(dict(td))
-
-    # Дополнительно нужно довести до 94
-    # Добавим ещё по 2 копии каждой основной плитки (точки/бамбук/символы)
-    # выбранных случайно, но строго парами
-    extra_needed = 94 - len(pool)  # сколько ещё нужно
+    # Итого 82, нужно довести до target_count парами
+    extra_needed = target_count - len(pool)
     if extra_needed > 0:
-        # extra_needed должно быть чётным
         if extra_needed % 2 != 0:
-            extra_needed -= 1  # делаем чётным
-        # Добавляем парами
+            extra_needed -= 1
         main_types = [td for td in TILE_DEFINITIONS
                       if td['suit'] in ('dots', 'bamboo', 'characters')]
         random.shuffle(main_types)
@@ -296,11 +321,9 @@ def build_tile_pool():
             pool.append(dict(main_types[idx]))
             extra_needed -= 2
             idx += 1
-
-    # На всякий случай обрезаем до 94 (если получилось больше)
-    if len(pool) > 94:
-        pool = pool[:94]
-
+    # Обрезаем до нужного размера
+    if len(pool) > target_count:
+        pool = pool[:target_count]
     return pool
 
 
@@ -605,7 +628,8 @@ class MahjongBoard(Widget):
             self.elapsed_seconds += 1
 
     def _create_tiles(self):
-        pool = build_tile_pool()
+        # Создаём пул плиток нужного размера для текущей фигуры
+        pool = build_tile_pool(target_count=self.shape.tile_count)
         random.shuffle(pool)
         self.tiles = []
         for i, position in enumerate(self.shape.layout):
