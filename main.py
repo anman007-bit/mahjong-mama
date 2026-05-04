@@ -286,6 +286,15 @@ def _build_turtle_layout():
     return layout
 
 
+TURTLE_SHAPE = Shape(
+    key='turtle',
+    name='ЧЕРЕПАХА',
+    layout=_build_turtle_layout(),
+    board_w=17,
+    board_h=7
+)
+
+
 # ============================================================
 # РАСКЛАДКА "РОМБ С УГЛАМИ" (98 плиток)
 # ============================================================
