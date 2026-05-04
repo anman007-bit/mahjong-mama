@@ -286,17 +286,96 @@ def _build_turtle_layout():
     return layout
 
 
-TURTLE_SHAPE = Shape(
-    key='turtle',
-    name='ЧЕРЕПАХА',
-    layout=_build_turtle_layout(),
+# ============================================================
+# РАСКЛАДКА "РОМБ С УГЛАМИ" (98 плиток)
+# ============================================================
+
+def _build_diamond_layout():
+    """Раскладка РОМБ: 98 плиток = 49 пар.
+    Ромб в центре + 4 уголка по краям поля.
+    Слой 0: 65 (ромб 53 + углы 12)
+    Слой 1: 27 (ромб 23 + углы 4)
+    Слой 2: 5 (только ромб)
+    Слой 3: 1 (макушка)
+    """
+    layout = []
+
+    # ===== СЛОЙ 0 - ФУНДАМЕНТ =====
+    # Ромб (расширяется к середине, столбцы 4-14 в самой широкой части)
+    diamond_rows_l0 = [
+        (0, range(6, 11)),    # 5 плиток
+        (1, range(5, 12)),    # 7 плиток
+        (2, range(4, 13)),    # 9 плиток
+        (3, range(3, 14)),    # 11 плиток (середина)
+        (4, range(4, 13)),    # 9 плиток
+        (5, range(5, 12)),    # 7 плиток
+        (6, range(6, 11)),    # 5 плиток
+    ]
+    for row, cols in diamond_rows_l0:
+        for col in cols:
+            layout.append((0, row, col))
+
+    # Углы слоя 0 - в каждом углу 3 плитки (2 в крайнем ряду + 1 в среднем)
+    # Левый верхний угол (ряды 0-1, col 0-1)
+    layout.append((0, 0, 0))
+    layout.append((0, 0, 1))
+    layout.append((0, 1, 0))
+    # Правый верхний угол (ряды 0-1, col 15-16)
+    layout.append((0, 0, 15))
+    layout.append((0, 0, 16))
+    layout.append((0, 1, 16))
+    # Левый нижний угол (ряды 5-6, col 0-1)
+    layout.append((0, 5, 0))
+    layout.append((0, 6, 0))
+    layout.append((0, 6, 1))
+    # Правый нижний угол (ряды 5-6, col 15-16)
+    layout.append((0, 5, 16))
+    layout.append((0, 6, 15))
+    layout.append((0, 6, 16))
+
+    # ===== СЛОЙ 1 =====
+    # Ромб поменьше (на 2 плитки уже с каждой стороны)
+    diamond_rows_l1 = [
+        (1, range(6, 9)),     # 3 плитки
+        (2, range(5, 10)),    # 5 плиток
+        (3, range(4, 11)),    # 7 плиток (середина)
+        (4, range(5, 10)),    # 5 плиток
+        (5, range(6, 9)),     # 3 плитки
+    ]
+    for row, cols in diamond_rows_l1:
+        for col in cols:
+            layout.append((1, row, col))
+
+    # Углы слоя 1 - по 1 плитке над средней плиткой каждого угла
+    layout.append((1, 0, 1))   # над левым верхним
+    layout.append((1, 0, 15))  # над правым верхним
+    layout.append((1, 6, 1))   # над левым нижним
+    layout.append((1, 6, 15))  # над правым нижним
+
+    # ===== СЛОЙ 2 - только ромб =====
+    layout.append((2, 2, 7))
+    layout.append((2, 3, 6))
+    layout.append((2, 3, 7))
+    layout.append((2, 3, 8))
+    layout.append((2, 4, 7))
+
+    # ===== СЛОЙ 3 - МАКУШКА =====
+    layout.append((3, 3, 7))
+
+    return layout
+
+
+DIAMOND_SHAPE = Shape(
+    key='diamond',
+    name='РОМБ',
+    layout=_build_diamond_layout(),
     board_w=17,
     board_h=7
 )
 
 
 # Список всех доступных фигур
-SHAPES = [PYRAMID_SHAPE, TURTLE_SHAPE]
+SHAPES = [PYRAMID_SHAPE, DIAMOND_SHAPE, TURTLE_SHAPE]
 
 
 # ============================================================
