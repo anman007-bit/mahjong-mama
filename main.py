@@ -1646,9 +1646,13 @@ class ShapeMenuItem(BoxLayout):
         else:
             # Одиночный тап - выделяем
             self._last_tap_time = now
-            # Сообщаем родителю что мы выбраны
-            if hasattr(self.parent.parent, 'select_item'):
-                self.parent.parent.select_item(self)
+            # Идём вверх по дереву виджетов пока не найдём select_item
+            parent = self.parent
+            while parent is not None:
+                if hasattr(parent, 'select_item'):
+                    parent.select_item(self)
+                    break
+                parent = parent.parent
         return True
 
 
