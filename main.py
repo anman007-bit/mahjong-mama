@@ -895,7 +895,7 @@ class MahjongBoard(Widget):
             elif is_free:
                 Color(1.00, 0.98, 0.92, 1)  # светло-кремовый - свободна
             else:
-                Color(0.55, 0.52, 0.45, 1)  # тёмно-серый - заблокирована
+                Color(0.80, 0.76, 0.68, 1)  # бежево-серый - заблокирована (мягче)
 
             face_x = x + side
             face_y = y + side
@@ -909,10 +909,14 @@ class MahjongBoard(Widget):
             )
 
             if tile.selected:
-                Color(1.0, 0.6, 0.0, 1)
+                # Яркая толстая оранжевая рамка, сдвинутая внутрь чтоб не перекрывали соседи
+                inset = max(2.0, side * 0.4)
+                Color(1.0, 0.55, 0.0, 1)
                 Line(rounded_rectangle=(
-                    face_x, face_y, face_w, face_h, radius
-                ), width=2.5)
+                    face_x + inset, face_y + inset,
+                    face_w - 2 * inset, face_h - 2 * inset,
+                    radius
+                ), width=max(3.0, tile_w * 0.06))
             else:
                 Color(0.4, 0.3, 0.2, 0.5)
                 Line(rounded_rectangle=(
@@ -927,7 +931,7 @@ class MahjongBoard(Widget):
         content_h = face_h - 2 * content_pad
 
         dim = (not is_free) and (not tile.selected)
-        bright = 0.55 if dim else 1.0
+        bright = 0.78 if dim else 1.0
 
         suit = tile.tile_def['suit']
         value = tile.tile_def['value']
