@@ -1,1 +1,1 @@
-# mahjong-mama
+# mahjong
