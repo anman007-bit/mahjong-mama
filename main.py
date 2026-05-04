@@ -660,27 +660,39 @@ class MahjongBoard(Widget):
 
     def _tile_dims(self):
         """
-        Поле: 14 столбцов x 9 рядов + смещение слоёв (4 * 0.08)
-        Эффективный размер: 14.32 в ширину, 9.32 в высоту (в плитках)
-        Плитка пропорция 1:1.25 (выше чем шире, но не сильно)
+        Размер плитки на экране - рассчитывается из размеров фигуры.
+        У каждой фигуры в shape хранится board_w и board_h.
+        Плитка имеет пропорцию 1:1.25 (выше чем шире).
+        Учитываем смещение слоёв (15% от плитки на каждый слой).
         """
         margin = 0.01  # минимальные поля
         usable_w = self.width * (1 - 2 * margin)
         usable_h = self.height * (1 - 2 * margin)
 
-        # Поле должно поместиться по обоим осям
-        # ширина = 14.32 * tile_w
-        # высота = 9.32 * tile_h = 9.32 * 1.25 * tile_w = 11.65 * tile_w
-        # Пирамида с увеличенным смещением слоёв
-        max_w_by_width = usable_w / 12.6
-        max_w_by_height = usable_h / 8.2
+        # Узнаём максимальное количество слоёв в фигуре
+        max_layer = max(layer for layer, _, _ in self.shape.layout)
+        # Плюс 1 потому что слои нумеруются с 0
+        layer_offset_total = (max_layer) * 0.15
+
+        # Сколько плиток помещается по ширине и высоте
+        # с учётом смещения слоёв
+        cells_w = self.shape.board_w + layer_offset_total + 0.6
+        cells_h = self.shape.board_h + layer_offset_total + 1.2
+
+        # Размер плитки - минимум по обеим осям
+        max_w_by_width = usable_w / cells_w
+        max_w_by_height = usable_h / cells_h / 1.25
         tile_w = min(max_w_by_width, max_w_by_height)
         tile_h = tile_w * 1.25
         return tile_w, tile_h
 
     def _board_offset(self, tile_w, tile_h):
-        board_w = tile_w * 12 + 3 * 0.15 * tile_w
-        board_h = tile_h * 6 + 3 * 0.15 * tile_h
+        # Узнаём максимальный слой для расчёта смещения
+        max_layer = max(layer for layer, _, _ in self.shape.layout)
+        # Реальная ширина/высота поля с учётом смещения слоёв
+        board_w = tile_w * self.shape.board_w + max_layer * 0.15 * tile_w
+        board_h = tile_h * self.shape.board_h + max_layer * 0.15 * tile_h
+        # Центрируем поле на экране
         offset_x = (self.width - board_w) / 2
         offset_y = (self.height - board_h) / 2
         return offset_x, offset_y
@@ -688,8 +700,11 @@ class MahjongBoard(Widget):
     def _tile_screen_pos(self, tile, tile_w, tile_h, offset_x, offset_y):
         layer_offset_x = tile_w * 0.15
         layer_offset_y = tile_h * 0.15
+        # Инвертируем row чтобы row=0 был СВЕРХУ экрана
+        # (max_row - tile.row) вместо жёсткого (5 - tile.row)
+        max_row = self.shape.board_h - 1
         x = offset_x + tile.col * tile_w + tile.layer * layer_offset_x
-        y = offset_y + (5 - tile.row) * tile_h + tile.layer * layer_offset_y
+        y = offset_y + (max_row - tile.row) * tile_h + tile.layer * layer_offset_y
         return x, y
 
     # --------------------------------------------------------
