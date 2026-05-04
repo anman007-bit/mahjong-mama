@@ -379,7 +379,11 @@ def build_tile_pool(target_count=94):
                       if td['suit'] in ('dots', 'bamboo', 'characters')]
         random.shuffle(main_types)
         idx = 0
-        while extra_needed > 0 and idx < len(main_types):
+        while extra_needed > 0:
+            # Если прошли все типы - начинаем заново (можем добавлять одни и те же)
+            if idx >= len(main_types):
+                random.shuffle(main_types)
+                idx = 0
             pool.append(dict(main_types[idx]))
             pool.append(dict(main_types[idx]))
             extra_needed -= 2
