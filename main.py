@@ -232,8 +232,98 @@ PYRAMID_SHAPE = Shape(
     board_h=6
 )
 
-# Список всех доступных фигур (пока только пирамида)
-SHAPES = [PYRAMID_SHAPE]
+
+# ============================================================
+# РАСКЛАДКА "ЧЕРЕПАХА" (классика Mahjong Titans, 144 плитки)
+# ============================================================
+
+def _build_turtle_layout():
+    """Классическая раскладка ЧЕРЕПАХА: 144 плитки = 72 пары.
+    Это та самая черепаха из Mahjong Titans (Windows 7).
+    Слой 0: 88 плиток (тело + хвост + голова + лапы)
+    Слой 1: 36 плиток
+    Слой 2: 16 плиток
+    Слой 3: 4 плитки
+    Слой 4: 1 плитка (макушка)
+    """
+    layout = []
+
+    # ===== СЛОЙ 0 (фундамент) - 88 плиток =====
+    # Главное тело: 12 столбцов x 8 рядов с вырезами
+    # Ряд 0 (верх): 12 плиток (col 2-13)
+    for col in range(2, 14):
+        layout.append((0, 0, col))
+    # Ряд 1: 8 плиток (col 4-11)
+    for col in range(4, 12):
+        layout.append((0, 1, col))
+    # Ряд 2: 10 плиток (col 3-12)
+    for col in range(3, 13):
+        layout.append((0, 2, col))
+    # Ряд 3: 11 плиток (col 2-12) — без правой
+    for col in range(2, 13):
+        layout.append((0, 3, col))
+    # Ряд 4: 11 плиток (col 2-12) — без правой
+    for col in range(2, 13):
+        layout.append((0, 4, col))
+    # Ряд 5: 10 плиток (col 3-12)
+    for col in range(3, 13):
+        layout.append((0, 5, col))
+    # Ряд 6: 8 плиток (col 4-11)
+    for col in range(4, 12):
+        layout.append((0, 6, col))
+    # Ряд 7 (низ): 12 плиток (col 2-13)
+    for col in range(2, 14):
+        layout.append((0, 7, col))
+
+    # ХВОСТ слева (4 плитки в линию по середине)
+    # Тело занимает col 2-13, хвост идёт левее
+    layout.append((0, 3, 0))   # самая левая
+    layout.append((0, 3, 1))   # рядом с телом
+    layout.append((0, 4, 0))
+    layout.append((0, 4, 1))
+
+    # ГОЛОВА справа (1 плитка)
+    layout.append((0, 3, 14))
+    layout.append((0, 4, 14))
+
+    # ===== СЛОЙ 1 - 35 плиток (меньшее тело внутри) =====
+    # Прямоугольник 6 рядов x 6 столбцов с одной выемкой
+    for row in range(1, 7):
+        for col in range(4, 10):
+            # Пропускаем одну плитку чтоб было ровно 144 итого
+            if row == 1 and col == 9:
+                continue
+            layout.append((1, row, col))
+
+    # ===== СЛОЙ 2 - 16 плиток =====
+    # 4 ряда x 4 столбца в центре
+    for row in range(2, 6):
+        for col in range(5, 9):
+            layout.append((2, row, col))
+
+    # ===== СЛОЙ 3 - 4 плитки =====
+    # 2 ряда x 2 столбца в центре
+    for row in range(3, 5):
+        for col in range(6, 8):
+            layout.append((3, row, col))
+
+    # ===== СЛОЙ 4 - 1 плитка (макушка) =====
+    layout.append((4, 3, 6))
+
+    return layout
+
+
+TURTLE_SHAPE = Shape(
+    key='turtle',
+    name='ЧЕРЕПАХА',
+    layout=_build_turtle_layout(),
+    board_w=15,
+    board_h=8
+)
+
+
+# Список всех доступных фигур
+SHAPES = [PYRAMID_SHAPE, TURTLE_SHAPE]
 
 
 # ============================================================
